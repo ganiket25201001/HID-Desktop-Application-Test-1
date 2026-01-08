@@ -54,7 +54,7 @@ A modern, professional Python desktop application with a sleek dark-themed UI fo
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/HID-Desktop-Application-Test-1.git
+git clone https://github.com/ganiket25201001/HID-Desktop-Application-Test-1.git
 cd HID-Desktop-Application-Test-1
 ```
 
