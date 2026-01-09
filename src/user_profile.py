@@ -5,6 +5,8 @@ Manages user profile data persistence.
 import json
 import os
 import logging
+import hashlib
+import secrets
 from typing import Optional
 
 PROFILE_FILE = "user_profile.json"
@@ -20,10 +22,21 @@ class UserProfile:
     def __init__(self):
         """Initialize user profile with default values."""
         self.name: str = "Admin User"
-        self.role: str = "System Administrator"
-        self.email: str = "admin@company.com"
+        self.role: str = "Security Operations Administrator"
+        self.email: str = "admin.ops@hidshield.com"
         self.department: str = "IT Operations"
+        self.unique_id: str = "HID-SEC-8829-X"
+        self.password: str = "admin123"  # In real app, never store plaintext!
+        self.security_key: str = self._generate_security_key()
         self.load()
+    
+    def _generate_security_key(self) -> str:
+        """Generate a random security key."""
+        return secrets.token_hex(16)
+    
+    def get_password_hash(self) -> str:
+        """Get SHA-256 hash of the password."""
+        return hashlib.sha256(self.password.encode()).hexdigest()
 
     def load(self) -> bool:
         """
@@ -43,6 +56,9 @@ class UserProfile:
                 self.role = data.get("role", self.role)
                 self.email = data.get("email", self.email)
                 self.department = data.get("department", self.department)
+                self.unique_id = data.get("unique_id", self.unique_id)
+                self.password = data.get("password", self.password)
+                self.security_key = data.get("security_key", self.security_key)
             logger.info("Profile loaded successfully")
             return True
         except json.JSONDecodeError as e:
@@ -63,7 +79,10 @@ class UserProfile:
             "name": self.name,
             "role": self.role,
             "email": self.email,
-            "department": self.department
+            "department": self.department,
+            "unique_id": self.unique_id,
+            "password": self.password,
+            "security_key": self.security_key
         }
         
         try:

@@ -297,7 +297,7 @@ class DashboardApp(ctk.CTk):
         entry.pack(fill="x", pady=(2, 0))
 
     def show_profile(self):
-        """Display the user profile management view."""
+        """Display the user profile management view with security credentials."""
         if self.current_view == "profile":
             return
             
@@ -308,43 +308,266 @@ class DashboardApp(ctk.CTk):
         self.dash_btn.configure(fg_color="transparent")
         self.profile_btn.configure(fg_color=["#3B8ED0", "#1F6AA5"])
         
-        # Header
-        ctk.CTkLabel(
-            self.main_container,
-            text="User Profile",
-            font=ctk.CTkFont(size=24, weight="bold")
-        ).pack(anchor="w", pady=(0, 30))
+        # Main container with padding
+        main_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True)
         
-        # Profile Card
-        card = ctk.CTkFrame(self.main_container)
-        card.pack(fill="both", expand=True, padx=50, pady=(0, 50))
+        # Header Section
+        header_frame = ctk.CTkFrame(main_frame, fg_color=("#2B2B2B", "#1A1A1A"), height=120)
+        header_frame.pack(fill="x", padx=0, pady=(0, 20))
+        header_frame.pack_propagate(False)
         
-        # Profile Icon
-        icon_label = ctk.CTkLabel(
-            card,
-            text=self.user_profile.name[0].upper() if self.user_profile.name else "U",
-            font=ctk.CTkFont(size=48, weight="bold"),
-            width=100,
-            height=100,
+        # Profile Icon and Name in Header
+        header_content = ctk.CTkFrame(header_frame, fg_color="transparent")
+        header_content.pack(side="left", padx=30, pady=20)
+        
+        # Circular Avatar
+        avatar = ctk.CTkLabel(
+            header_content,
+            text="👤",
+            font=ctk.CTkFont(size=40),
+            width=80,
+            height=80,
             fg_color=["#3B8ED0", "#1F6AA5"],
-            corner_radius=50
+            corner_radius=40
         )
-        icon_label.pack(pady=(40, 30))
+        avatar.pack(side="left", padx=(0, 20))
         
-        # Form Container
-        form_container = ctk.CTkFrame(card, fg_color="transparent")
-        form_container.pack(fill="both", expand=True, padx=80)
+        # Name and Role
+        name_frame = ctk.CTkFrame(header_content, fg_color="transparent")
+        name_frame.pack(side="left")
         
-        # Variables
+        ctk.CTkLabel(
+            name_frame,
+            text=self.user_profile.name,
+            font=ctk.CTkFont(size=24, weight="bold"),
+            text_color="white"
+        ).pack(anchor="w")
+        
+        ctk.CTkLabel(
+            name_frame,
+            text=self.user_profile.role,
+            font=ctk.CTkFont(size=12),
+            text_color=["#3B8ED0", "#1F6AA5"]
+        ).pack(anchor="w")
+        
+        # Content Container (Two columns)
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, padx=20)
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(1, weight=1)
+        
+        # Left Panel - Personal Information
+        left_panel = ctk.CTkFrame(content_frame, fg_color=("#2B2B2B", "#1A1A1A"))
+        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        
+        # Left Panel Header
+        left_header = ctk.CTkFrame(left_panel, fg_color="transparent")
+        left_header.pack(fill="x", padx=20, pady=(20, 15))
+        
+        ctk.CTkLabel(
+            left_header,
+            text="👤",
+            font=ctk.CTkFont(size=16)
+        ).pack(side="left", padx=(0, 10))
+        
+        ctk.CTkLabel(
+            left_header,
+            text="Personal Information",
+            font=ctk.CTkFont(size=14, weight="bold")
+        ).pack(side="left")
+        
+        # Personal Info Fields
         self.var_name = ctk.StringVar(value=self.user_profile.name)
-        self.var_role = ctk.StringVar(value=self.user_profile.role)
+        self.var_unique_id = ctk.StringVar(value=self.user_profile.unique_id)
         self.var_email = ctk.StringVar(value=self.user_profile.email)
-        self.var_dept = ctk.StringVar(value=self.user_profile.department)
         
-        self._create_profile_entry(form_container, "Full Name", self.var_name)
-        self._create_profile_entry(form_container, "Role", self.var_role)
-        self._create_profile_entry(form_container, "Email Address", self.var_email)
-        self._create_profile_entry(form_container, "Department", self.var_dept)
+        self._create_security_field(left_panel, "FULL NAME", self.var_name, "👤", readonly=False)
+        self._create_security_field(left_panel, "UNIQUE ID", self.var_unique_id, "🔑", readonly=True)
+        self._create_security_field(left_panel, "GMAIL / EMAIL", self.var_email, "📧", readonly=False)
+        
+        # Right Panel - Security Credentials
+        right_panel = ctk.CTkFrame(content_frame, fg_color=("#2B2B2B", "#1A1A1A"))
+        right_panel.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        
+        # Right Panel Header
+        right_header = ctk.CTkFrame(right_panel, fg_color="transparent")
+        right_header.pack(fill="x", padx=20, pady=(20, 15))
+        
+        ctk.CTkLabel(
+            right_header,
+            text="🔒",
+            font=ctk.CTkFont(size=16)
+        ).pack(side="left", padx=(0, 10))
+        
+        ctk.CTkLabel(
+            right_header,
+            text="Security Credentials",
+            font=ctk.CTkFont(size=14, weight="bold")
+        ).pack(side="left")
+        
+        # Security Fields
+        self.var_password = ctk.StringVar(value=self.user_profile.password)
+        self.var_security_key = ctk.StringVar(value=self.user_profile.security_key)
+        self.var_password_hash = ctk.StringVar(value=self.user_profile.get_password_hash())
+        self.password_visible = False
+        
+        self._create_password_field(right_panel, "PASSWORD", self.var_password)
+        self._create_security_field(right_panel, "SECURITY KEY", self.var_security_key, "🔑", readonly=True)
+        self._create_hash_field(right_panel, "PASSWORD HASH", self.var_password_hash)
+        
+        # Save Button
+        save_btn = ctk.CTkButton(
+            main_frame,
+            text="💾 Save Changes",
+            command=self._save_profile,
+            height=45,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color="#27AE60",
+            hover_color="#229954"
+        )
+        save_btn.pack(pady=(20, 0), padx=20, fill="x")
+    
+    def _create_security_field(self, parent, label, variable, icon="", readonly=False):
+        """Create a security-styled input field."""
+        container = ctk.CTkFrame(parent, fg_color="transparent")
+        container.pack(fill="x", padx=20, pady=10)
+        
+        # Label
+        ctk.CTkLabel(
+            container,
+            text=label,
+            font=ctk.CTkFont(size=9, weight="bold"),
+            text_color="gray",
+            anchor="w"
+        ).pack(anchor="w", pady=(0, 5))
+        
+        # Entry Frame with Icon
+        entry_frame = ctk.CTkFrame(container, fg_color=("#3B3B3B", "#2A2A2A"), height=40)
+        entry_frame.pack(fill="x")
+        entry_frame.pack_propagate(False)
+        
+        if icon:
+            ctk.CTkLabel(
+                entry_frame,
+                text=icon,
+                font=ctk.CTkFont(size=14),
+                width=30
+            ).pack(side="left", padx=(10, 5))
+        
+        entry = ctk.CTkEntry(
+            entry_frame,
+            textvariable=variable,
+            font=ctk.CTkFont(size=12),
+            border_width=0,
+            fg_color="transparent",
+            state="readonly" if readonly else "normal"
+        )
+        entry.pack(side="left", fill="both", expand=True, padx=(5, 10))
+    
+    def _create_password_field(self, parent, label, variable):
+        """Create a password field with show/hide toggle."""
+        container = ctk.CTkFrame(parent, fg_color="transparent")
+        container.pack(fill="x", padx=20, pady=10)
+        
+        # Label
+        ctk.CTkLabel(
+            container,
+            text=label,
+            font=ctk.CTkFont(size=9, weight="bold"),
+            text_color="gray",
+            anchor="w"
+        ).pack(anchor="w", pady=(0, 5))
+        
+        # Entry Frame
+        entry_frame = ctk.CTkFrame(container, fg_color=("#3B3B3B", "#2A2A2A"), height=40)
+        entry_frame.pack(fill="x")
+        entry_frame.pack_propagate(False)
+        
+        # Lock Icon
+        ctk.CTkLabel(
+            entry_frame,
+            text="🔒",
+            font=ctk.CTkFont(size=14),
+            width=30
+        ).pack(side="left", padx=(10, 5))
+        
+        # Password Entry
+        self.password_entry = ctk.CTkEntry(
+            entry_frame,
+            textvariable=variable,
+            font=ctk.CTkFont(size=12),
+            border_width=0,
+            fg_color="transparent",
+            show="●"
+        )
+        self.password_entry.pack(side="left", fill="both", expand=True, padx=(5, 5))
+        
+        # Toggle Button
+        self.eye_btn = ctk.CTkButton(
+            entry_frame,
+            text="👁️",
+            width=30,
+            height=30,
+            fg_color="transparent",
+            hover_color=("#4A4A4A", "#3A3A3A"),
+            command=self._toggle_password_visibility
+        )
+        self.eye_btn.pack(side="right", padx=5)
+    
+    def _create_hash_field(self, parent, label, variable):
+        """Create a hash display field with SHA-256 badge."""
+        container = ctk.CTkFrame(parent, fg_color="transparent")
+        container.pack(fill="x", padx=20, pady=10)
+        
+        # Label
+        ctk.CTkLabel(
+            container,
+            text=label,
+            font=ctk.CTkFont(size=9, weight="bold"),
+            text_color="gray",
+            anchor="w"
+        ).pack(anchor="w", pady=(0, 5))
+        
+        # Entry Frame
+        entry_frame = ctk.CTkFrame(container, fg_color=("#3B3B3B", "#2A2A2A"), height=40)
+        entry_frame.pack(fill="x")
+        entry_frame.pack_propagate(False)
+        
+        # SHA-256 Badge
+        badge = ctk.CTkLabel(
+            entry_frame,
+            text="SHA-256",
+            font=ctk.CTkFont(size=8, weight="bold"),
+            text_color="white",
+            fg_color=["#3B8ED0", "#1F6AA5"],
+            corner_radius=3,
+            padx=8,
+            pady=2
+        )
+        badge.pack(side="left", padx=10)
+        
+        # Hash Display (truncated)
+        hash_value = variable.get()
+        display_hash = hash_value[:30] + "..." if len(hash_value) > 30 else hash_value
+        
+        ctk.CTkLabel(
+            entry_frame,
+            text=display_hash,
+            font=ctk.CTkFont(size=10, family="Consolas"),
+            text_color="gray",
+            anchor="w"
+        ).pack(side="left", fill="both", expand=True, padx=5)
+    
+    def _toggle_password_visibility(self):
+        """Toggle password visibility."""
+        self.password_visible = not self.password_visible
+        if self.password_visible:
+            self.password_entry.configure(show="")
+            self.eye_btn.configure(text="🙈")
+        else:
+            self.password_entry.configure(show="●")
+            self.eye_btn.configure(text="👁️")
         
         # Save Button
         save_btn = ctk.CTkButton(
@@ -382,9 +605,12 @@ class DashboardApp(ctk.CTk):
         """Save user profile changes."""
         try:
             self.user_profile.name = self.var_name.get()
-            self.user_profile.role = self.var_role.get()
             self.user_profile.email = self.var_email.get()
-            self.user_profile.department = self.var_dept.get()
+            self.user_profile.password = self.var_password.get()
+            
+            # Update hash display
+            self.var_password_hash.set(self.user_profile.get_password_hash())
+            
             self.user_profile.save()
             
             # Update Sidebar
