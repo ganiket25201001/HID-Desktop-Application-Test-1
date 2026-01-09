@@ -3,12 +3,13 @@ Modern GUI Module for Device Monitor Pro using CustomTkinter
 Provides a sleek dark-themed interface with enhanced visuals.
 """
 import customtkinter as ctk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import threading
 from typing import Dict, Optional
 import datetime
 from src.device_manager import DeviceManager
 from src.user_profile import UserProfile
+from src.system_activity_log import ActivityLog, ActivityType
 
 # Set CustomTkinter appearance
 ctk.set_appearance_mode("Dark")
@@ -28,6 +29,7 @@ class DashboardApp(ctk.CTk):
         # Data Managers
         self.dm = DeviceManager()
         self.user_profile = UserProfile()
+        self.activity_log = ActivityLog()
         
         # State variables
         self.current_devices: Dict = {}
@@ -80,6 +82,17 @@ class DashboardApp(ctk.CTk):
         )
         self.dash_btn.grid(row=1, column=0, padx=20, pady=5, sticky="ew")
         
+        self.activity_btn = ctk.CTkButton(
+            self.sidebar,
+            text="📋 Activity Log",
+            command=self.show_activity_log,
+            fg_color="transparent",
+            anchor="w",
+            height=40,
+            font=ctk.CTkFont(size=14)
+        )
+        self.activity_btn.grid(row=2, column=0, padx=20, pady=5, sticky="ew")
+        
         self.profile_btn = ctk.CTkButton(
             self.sidebar,
             text="👤 User Profile",
@@ -89,7 +102,7 @@ class DashboardApp(ctk.CTk):
             height=40,
             font=ctk.CTkFont(size=14)
         )
-        self.profile_btn.grid(row=2, column=0, padx=20, pady=5, sticky="ew")
+        self.profile_btn.grid(row=3, column=0, padx=20, pady=5, sticky="ew")
 
         # User Info at Bottom
         self.user_label = ctk.CTkLabel(
@@ -122,7 +135,11 @@ class DashboardApp(ctk.CTk):
         
         # Update button states
         self.dash_btn.configure(fg_color=["#3B8ED0", "#1F6AA5"])
+        self.activity_btn.configure(fg_color="transparent")
         self.profile_btn.configure(fg_color="transparent")
+        
+        # Log activity
+        self.activity_log.log_activity(ActivityType.REFRESH_TRIGGERED, "Dashboard refreshed", "System")
         
         # 1. Statistics Cards Row
         self.stats_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
@@ -306,6 +323,7 @@ class DashboardApp(ctk.CTk):
         
         # Update button states
         self.dash_btn.configure(fg_color="transparent")
+        self.activity_btn.configure(fg_color="transparent")
         self.profile_btn.configure(fg_color=["#3B8ED0", "#1F6AA5"])
         
         # Main container with padding
@@ -613,11 +631,334 @@ class DashboardApp(ctk.CTk):
             
             self.user_profile.save()
             
+            # Log activity
+            self.activity_log.log_activity(ActivityType.PROFILE_UPDATED, "User profile updated", self.user_profile.name)
+            
             # Update Sidebar
             self.user_label.configure(text=f"User: {self.user_profile.name}")
             messagebox.showinfo("Success", "✅ Profile updated successfully!")
         except Exception as e:
             messagebox.showerror("Error", f"❌ Failed to save profile: {e}")
+    
+    def show_activity_log(self):
+        """Display the system activity log view."""
+        if self.current_view == "activity_log":
+            return
+        
+        self._clear_content()
+        self.current_view = "activity_log"
+        
+        # Update button states
+        self.dash_btn.configure(fg_color="transparent")
+        self.activity_btn.configure(fg_color=["#3B8ED0", "#1F6AA5"])
+        self.profile_btn.configure(fg_color="transparent")
+        
+        # Main container
+        main_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True)
+        
+        # Header with Statistics
+        header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 15))
+        
+        ctk.CTkLabel(
+            header_frame,
+            text="📋 System Activity Log",
+            font=ctk.CTkFont(size=24, weight="bold")
+        ).pack(side="left")
+        
+        # Get statistics
+        stats = self.activity_log.get_statistics()
+        
+        # Stats cards
+        stats_container = ctk.CTkFrame(header_frame, fg_color="transparent")
+        stats_container.pack(side="right")
+        
+        stats_info = [
+            (f"{stats['today_activities']}", "Today", "📅"),
+            (f"{stats['devices_connected_today']}", "Connected", "🟢"),
+            (f"{stats['devices_disconnected_today']}", "Disconnected", "🔴"),
+            (f"{stats['total_activities']}", "Total", "📊")
+        ]
+        
+        for idx, (value, label, icon) in enumerate(stats_info):
+            card = ctk.CTkFrame(stats_container, width=100, height=60)
+            card.pack(side="left", padx=5)
+            card.pack_propagate(False)
+            
+            ctk.CTkLabel(
+                card,
+                text=icon,
+                font=ctk.CTkFont(size=16)
+            ).pack(pady=(5, 0))
+            
+            ctk.CTkLabel(
+                card,
+                text=value,
+                font=ctk.CTkFont(size=18, weight="bold")
+            ).pack()
+            
+            ctk.CTkLabel(
+                card,
+                text=label,
+                font=ctk.CTkFont(size=9),
+                text_color="gray"
+            ).pack(pady=(0, 5))
+        
+        # Action bar
+        action_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        action_frame.pack(fill="x", pady=(0, 10))
+        
+        # Filter dropdown
+        self.filter_var = ctk.StringVar(value="All Activities")
+        filter_menu = ctk.CTkOptionMenu(
+            action_frame,
+            values=["All Activities", "Devices Connected", "Devices Disconnected", "System Events", "Profile Updates"],
+            variable=self.filter_var,
+            command=self._filter_activities,
+            width=180
+        )
+        filter_menu.pack(side="left", padx=(0, 10))
+        
+        # Refresh button
+        refresh_btn = ctk.CTkButton(
+            action_frame,
+            text="🔄 Refresh",
+            command=self._refresh_activity_log,
+            width=100,
+            height=30
+        )
+        refresh_btn.pack(side="left", padx=(0, 10))
+        
+        # Export button
+        export_btn = ctk.CTkButton(
+            action_frame,
+            text="📥 Export",
+            command=self._export_activity_log,
+            width=100,
+            height=30,
+            fg_color="#27AE60",
+            hover_color="#229954"
+        )
+        export_btn.pack(side="left", padx=(0, 10))
+        
+        # Clear button
+        clear_btn = ctk.CTkButton(
+            action_frame,
+            text="🗑️ Clear All",
+            command=self._clear_activity_log,
+            width=100,
+            height=30,
+            fg_color="#E74C3C",
+            hover_color="#C0392B"
+        )
+        clear_btn.pack(side="left")
+        
+        # Activity list frame
+        list_frame = ctk.CTkFrame(main_frame, fg_color=("#2B2B2B", "#1A1A1A"))
+        list_frame.pack(fill="both", expand=True)
+        
+        # Scrollable frame for activities
+        self.activity_scroll = ctk.CTkScrollableFrame(list_frame, fg_color="transparent")
+        self.activity_scroll.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Load and display activities
+        self._load_activities()
+    
+    def _load_activities(self, activity_filter="All Activities"):
+        """Load and display activities in the log."""
+        # Clear existing
+        for widget in self.activity_scroll.winfo_children():
+            widget.destroy()
+        
+        # Get activities based on filter
+        if activity_filter == "Devices Connected":
+            activities = self.activity_log.get_activities_by_type(ActivityType.DEVICE_CONNECTED, limit=100)
+        elif activity_filter == "Devices Disconnected":
+            activities = self.activity_log.get_activities_by_type(ActivityType.DEVICE_DISCONNECTED, limit=100)
+        elif activity_filter == "System Events":
+            system_activities = []
+            for act_type in [ActivityType.SYSTEM_STARTUP, ActivityType.SYSTEM_SHUTDOWN, ActivityType.REFRESH_TRIGGERED]:
+                system_activities.extend(self.activity_log.get_activities_by_type(act_type, limit=50))
+            activities = sorted(system_activities, key=lambda x: x['timestamp'], reverse=True)[:100]
+        elif activity_filter == "Profile Updates":
+            activities = self.activity_log.get_activities_by_type(ActivityType.PROFILE_UPDATED, limit=100)
+        else:
+            activities = self.activity_log.get_recent_activities(limit=100)
+        
+        if not activities:
+            ctk.CTkLabel(
+                self.activity_scroll,
+                text="No activities recorded yet",
+                font=ctk.CTkFont(size=14),
+                text_color="gray"
+            ).pack(pady=50)
+            return
+        
+        # Display each activity
+        for activity in activities:
+            self._create_activity_item(activity)
+    
+    def _create_activity_item(self, activity: Dict):
+        """Create a single activity item widget."""
+        # Severity colors
+        severity_colors = {
+            "error": "#E74C3C",
+            "warning": "#F39C12",
+            "success": "#27AE60",
+            "info": "#3B8ED0"
+        }
+        
+        # Icons by type
+        type_icons = {
+            "device_connected": "🟢",
+            "device_disconnected": "🔴",
+            "device_error": "⚠️",
+            "system_startup": "🚀",
+            "system_shutdown": "⏹️",
+            "profile_updated": "👤",
+            "settings_changed": "⚙️",
+            "refresh_triggered": "🔄"
+        }
+        
+        # Container for each activity
+        item_frame = ctk.CTkFrame(
+            self.activity_scroll,
+            fg_color=("#3B3B3B", "#2A2A2A"),
+            height=70
+        )
+        item_frame.pack(fill="x", pady=5, padx=5)
+        item_frame.pack_propagate(False)
+        
+        # Left side - Icon and severity indicator
+        left_frame = ctk.CTkFrame(item_frame, fg_color="transparent", width=60)
+        left_frame.pack(side="left", fill="y", padx=(10, 5))
+        left_frame.pack_propagate(False)
+        
+        # Severity bar
+        severity_color = severity_colors.get(activity['severity'], "#3B8ED0")
+        ctk.CTkFrame(
+            left_frame,
+            width=4,
+            fg_color=severity_color
+        ).pack(side="left", fill="y")
+        
+        # Icon
+        icon = type_icons.get(activity['type'], "📋")
+        ctk.CTkLabel(
+            left_frame,
+            text=icon,
+            font=ctk.CTkFont(size=20)
+        ).pack(side="left", padx=10)
+        
+        # Middle - Content
+        content_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
+        content_frame.pack(side="left", fill="both", expand=True, padx=5)
+        
+        # Title row
+        title_row = ctk.CTkFrame(content_frame, fg_color="transparent")
+        title_row.pack(fill="x", pady=(8, 2))
+        
+        ctk.CTkLabel(
+            title_row,
+            text=activity['device_name'],
+            font=ctk.CTkFont(size=13, weight="bold"),
+            anchor="w"
+        ).pack(side="left")
+        
+        # Type badge
+        ctk.CTkLabel(
+            title_row,
+            text=activity['type'].replace('_', ' ').title(),
+            font=ctk.CTkFont(size=9),
+            text_color="white",
+            fg_color=severity_color,
+            corner_radius=3,
+            padx=6,
+            pady=2
+        ).pack(side="left", padx=(10, 0))
+        
+        # Message
+        ctk.CTkLabel(
+            content_frame,
+            text=activity['message'],
+            font=ctk.CTkFont(size=11),
+            text_color="gray",
+            anchor="w"
+        ).pack(fill="x", pady=(0, 2))
+        
+        # Details if available
+        if activity.get('details'):
+            details_text = " | ".join([f"{k}: {v}" for k, v in activity['details'].items() if k != 'last_seen'])
+            if details_text:
+                ctk.CTkLabel(
+                    content_frame,
+                    text=details_text,
+                    font=ctk.CTkFont(size=9, family="Consolas"),
+                    text_color="#666",
+                    anchor="w"
+                ).pack(fill="x")
+        
+        # Right side - Timestamp
+        time_frame = ctk.CTkFrame(item_frame, fg_color="transparent", width=120)
+        time_frame.pack(side="right", fill="y", padx=10)
+        time_frame.pack_propagate(False)
+        
+        # Parse and format timestamp
+        timestamp = datetime.datetime.fromisoformat(activity['timestamp'])
+        time_str = timestamp.strftime("%H:%M:%S")
+        date_str = timestamp.strftime("%Y-%m-%d")
+        
+        ctk.CTkLabel(
+            time_frame,
+            text=time_str,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            anchor="e"
+        ).pack(side="top", pady=(10, 0))
+        
+        ctk.CTkLabel(
+            time_frame,
+            text=date_str,
+            font=ctk.CTkFont(size=9),
+            text_color="gray",
+            anchor="e"
+        ).pack(side="top")
+    
+    def _filter_activities(self, choice):
+        """Filter activities based on selection."""
+        self._load_activities(choice)
+    
+    def _refresh_activity_log(self):
+        """Refresh the activity log display."""
+        self._load_activities(self.filter_var.get())
+        self.activity_log.log_activity(ActivityType.REFRESH_TRIGGERED, "Activity log refreshed", "System")
+    
+    def _export_activity_log(self):
+        """Export activity log to JSON file."""
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            initialfile=f"activity_log_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
+        
+        if filepath:
+            if self.activity_log.export_logs(filepath):
+                messagebox.showinfo("Success", f"✅ Activity log exported to:\n{filepath}")
+            else:
+                messagebox.showerror("Error", "❌ Failed to export activity log")
+    
+    def _clear_activity_log(self):
+        """Clear all activity logs after confirmation."""
+        result = messagebox.askyesno(
+            "Confirm Clear",
+            "⚠️ Are you sure you want to clear all activity logs?\nThis action cannot be undone!"
+        )
+        
+        if result:
+            self.activity_log.clear_logs()
+            self.activity_log.log_activity(ActivityType.SYSTEM_STARTUP, "Activity logs cleared", "System")
+            self._load_activities(self.filter_var.get())
+            messagebox.showinfo("Success", "✅ Activity logs cleared")
 
     def _copy_device_info(self):
         """Copy selected device information to clipboard."""
@@ -684,9 +1025,14 @@ class DashboardApp(ctk.CTk):
         try:
             devices = self.dm.get_all_devices()
             self.last_update_time = datetime.datetime.now()
+            
+            # Check for device changes and log them
+            self.activity_log.check_device_changes(devices)
+            
             self.after(0, lambda: self._update_tree(devices))
         except Exception as e:
             error_msg = f"Error scanning devices: {e}"
+            self.activity_log.log_activity(ActivityType.DEVICE_ERROR, str(e), "System")
             self.after(0, lambda msg=error_msg: self._handle_fetch_error(msg))
         finally:
             self.is_refreshing = False

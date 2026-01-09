@@ -33,6 +33,7 @@ Thumbs.db
 
 # User data
 user_profile.json
+system_activity.json
 
 # Logs
 *.log
