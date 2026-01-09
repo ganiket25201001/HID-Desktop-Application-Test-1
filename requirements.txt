@@ -2,3 +2,4 @@ wmi
 pywin32
 psutil
 customtkinter
+pyinstaller

@@ -63,16 +63,16 @@ class DashboardApp(ctk.CTk):
         
         # Logo
         self.logo_label = ctk.CTkLabel(
-            self.sidebar, 
-            text="DEVICE\nMONITOR PRO", 
+            self.sidebar,
+            text="DEVICE\nMONITOR PRO",
             font=ctk.CTkFont(size=22, weight="bold")
         )
         self.logo_label.grid(row=0, column=0, padx=20, pady=(30, 40))
 
         # Navigation Buttons
         self.dash_btn = ctk.CTkButton(
-            self.sidebar, 
-            text="📊 Dashboard", 
+            self.sidebar,
+            text="📊 Dashboard",
             command=self.show_dashboard,
             anchor="w",
             height=40,
@@ -81,8 +81,8 @@ class DashboardApp(ctk.CTk):
         self.dash_btn.grid(row=1, column=0, padx=20, pady=5, sticky="ew")
         
         self.profile_btn = ctk.CTkButton(
-            self.sidebar, 
-            text="👤 User Profile", 
+            self.sidebar,
+            text="👤 User Profile",
             command=self.show_profile,
             fg_color="transparent",
             anchor="w",
@@ -93,8 +93,8 @@ class DashboardApp(ctk.CTk):
 
         # User Info at Bottom
         self.user_label = ctk.CTkLabel(
-            self.sidebar, 
-            text=f"User: {self.user_profile.name}", 
+            self.sidebar,
+            text=f"User: {self.user_profile.name}",
             font=ctk.CTkFont(size=11),
             text_color="gray"
         )
@@ -131,7 +131,7 @@ class DashboardApp(ctk.CTk):
         self.stats_cards = {
             "total": self._create_stat_card(self.stats_frame, "Total Devices", "0", "📊", 0),
             "usb": self._create_stat_card(self.stats_frame, "USB", "0", "🔌", 1),
-            "hid": self._create_stat_card(self.stats_frame, "HID", "0", "⌨️", 2),
+            "hid": self._create_stat_card(self.stats_frame, "HID", "0", "🖱️", 2),
             "network": self._create_stat_card(self.stats_frame, "Network", "0", "🌐", 3),
         }
 
@@ -140,8 +140,8 @@ class DashboardApp(ctk.CTk):
         self.action_bar.grid(row=1, column=0, sticky="ew", pady=(0, 15))
         
         self.search_entry = ctk.CTkEntry(
-            self.action_bar, 
-            placeholder_text="🔍 Search devices...", 
+            self.action_bar,
+            placeholder_text="🔍 Search devices...",
             width=350,
             height=35,
             font=ctk.CTkFont(size=13)
@@ -150,8 +150,8 @@ class DashboardApp(ctk.CTk):
         self.search_entry.bind("<KeyRelease>", lambda e: self._on_search_changed())
         
         self.refresh_btn = ctk.CTkButton(
-            self.action_bar, 
-            text="🔄 Refresh", 
+            self.action_bar,
+            text="🔄 Refresh",
             command=self._manual_refresh,
             width=120,
             height=35,
@@ -160,8 +160,8 @@ class DashboardApp(ctk.CTk):
         self.refresh_btn.pack(side="right", padx=(10, 0))
         
         self.lbl_status = ctk.CTkLabel(
-            self.action_bar, 
-            text="Ready", 
+            self.action_bar,
+            text="Ready",
             font=ctk.CTkFont(size=12),
             text_color="gray"
         )
@@ -208,14 +208,14 @@ class DashboardApp(ctk.CTk):
         self.details_header.pack(fill="x", padx=15, pady=(15, 10))
         
         ctk.CTkLabel(
-            self.details_header, 
-            text="Device Details", 
+            self.details_header,
+            text="Device Details",
             font=ctk.CTkFont(size=18, weight="bold")
         ).pack(side="left")
         
         self.btn_copy = ctk.CTkButton(
-            self.details_header, 
-            text="📋 Copy", 
+            self.details_header,
+            text="📋 Copy",
             command=self._copy_device_info,
             width=90,
             height=30,
@@ -249,25 +249,28 @@ class DashboardApp(ctk.CTk):
         card.grid(row=0, column=col, padx=5, sticky="nsew")
         parent.grid_columnconfigure(col, weight=1)
         
+        # Icon label
         ctk.CTkLabel(
-            card, 
-            text=icon, 
+            card,
+            text=icon,
             font=ctk.CTkFont(size=24)
-        ).pack(pady=(10, 0))
+        ).pack(pady=(15, 5))
         
+        # Value label
         value_var = ctk.StringVar(value=value)
         ctk.CTkLabel(
-            card, 
-            textvariable=value_var, 
+            card,
+            textvariable=value_var,
             font=ctk.CTkFont(size=26, weight="bold")
-        ).pack(pady=(5, 0))
+        ).pack(pady=5)
         
+        # Title label
         ctk.CTkLabel(
-            card, 
-            text=title, 
+            card,
+            text=title,
             font=ctk.CTkFont(size=11),
             text_color="gray"
-        ).pack(pady=(0, 10))
+        ).pack(pady=(5, 15))
         
         return value_var
 
@@ -277,15 +280,15 @@ class DashboardApp(ctk.CTk):
         row.pack(fill="x", padx=15, pady=5)
         
         ctk.CTkLabel(
-            row, 
-            text=label.upper(), 
+            row,
+            text=label.upper(),
             font=ctk.CTkFont(size=9, weight="bold"),
             text_color="gray",
             anchor="w"
         ).pack(anchor="w")
         
         entry = ctk.CTkEntry(
-            row, 
+            row,
             textvariable=variable,
             state="readonly",
             font=ctk.CTkFont(size=12),
@@ -307,8 +310,8 @@ class DashboardApp(ctk.CTk):
         
         # Header
         ctk.CTkLabel(
-            self.main_container, 
-            text="User Profile", 
+            self.main_container,
+            text="User Profile",
             font=ctk.CTkFont(size=24, weight="bold")
         ).pack(anchor="w", pady=(0, 30))
         
@@ -345,8 +348,8 @@ class DashboardApp(ctk.CTk):
         
         # Save Button
         save_btn = ctk.CTkButton(
-            card, 
-            text="💾 Save Changes", 
+            card,
+            text="💾 Save Changes",
             command=self._save_profile,
             height=45,
             font=ctk.CTkFont(size=14, weight="bold"),
@@ -361,16 +364,16 @@ class DashboardApp(ctk.CTk):
         container.pack(fill="x", pady=10)
         
         ctk.CTkLabel(
-            container, 
-            text=label, 
+            container,
+            text=label,
             font=ctk.CTkFont(size=12),
             text_color="gray",
             anchor="w"
         ).pack(anchor="w")
         
         ctk.CTkEntry(
-            container, 
-            textvariable=variable, 
+            container,
+            textvariable=variable,
             height=40,
             font=ctk.CTkFont(size=13)
         ).pack(fill="x", pady=(5, 0))
