@@ -17,18 +17,49 @@ A modern, professional Python desktop application with a sleek dark-themed UI fo
 - ⌨️ **Keyboard Shortcuts** - Efficient navigation and control
 - 💫 **Smooth Animations** - Modern hover effects and transitions
 - 📋 **One-Click Copy** - Copy device information to clipboard
+- 🎯 **Three Main Views** - Dashboard, Activity Log, User Profile
 
 ### **🔌 Device Management**
-- **Real-time Monitoring** - Auto-refresh every 5 seconds
+- **Real-time Monitoring** - Auto-refresh every 5 seconds with device change detection
 - **Categorized View** - USB, HID, Network, Storage, Bluetooth
 - **Detailed Information** - VID, PID, Manufacturer, Driver, Status, Paths
 - **Status Indicators** - 🟢 Connected/OK | 🟡 Unknown | 🔴 Disconnected
 - **Smart Filtering** - Search by name, manufacturer, or category
+- **Connection Tracking** - Automatic detection of newly connected/disconnected devices
 
-### **👤 User Profiles**
-- Manage user identity (Name, Role, Email, Department)
-- Persistent storage with JSON
-- Input validation and error handling
+### **📋 System Activity Log** (NEW!)
+- **Real-time Event Tracking** - Automatically logs all device connections/disconnections
+- **Timestamped Entries** - Precise time tracking for all system events
+- **Activity Statistics** - Daily summaries and total counts
+- **Smart Filtering** - Filter by activity type (Connections, Disconnections, System Events, etc.)
+- **Export Functionality** - Export logs to JSON files for analysis
+- **Detailed Information** - Device name, type, VID/PID, manufacturer, timestamps
+- **Severity Indicators** - Color-coded entries (Error, Warning, Success, Info)
+- **Activity Types Tracked:**
+  - 🟢 Device Connected (with full device details)
+  - 🔴 Device Disconnected (with last seen time)
+  - ⚠️ Device Errors
+  - 🚀 System Startup/Shutdown
+  - 👤 Profile Updates
+  - ⚙️ Settings Changes
+  - 🔄 Refresh Events
+- **Log Management** - Clear logs, export to JSON, auto-pruning (keeps last 1000 entries)
+- **Statistics Dashboard** - View today's activity, total devices connected/disconnected
+
+### **👤 Enhanced User Profile** (UPDATED!)
+- **Security-Focused Design** - Professional two-panel layout
+- **Personal Information Panel:**
+  - Full Name (editable)
+  - Unique ID (auto-generated, read-only)
+  - Email Address (editable with validation)
+- **Security Credentials Panel:**
+  - Password Management (with show/hide toggle 👁️)
+  - Auto-generated Security Key (32-character hex)
+  - SHA-256 Password Hash Display
+  - Real-time hash updates
+- **Professional UI** - Circular avatar, icon indicators, read-only security fields
+- **Persistent Storage** - All data saved to JSON
+- **Activity Logging** - Profile changes tracked in Activity Log
 
 ### **🛡️ Technical Excellence**
 - Type hints throughout codebase
@@ -146,16 +177,19 @@ The script will:
 HID-Desktop-Application-Test-1/
 ├── src/
 │   ├── __init__.py
-│   ├── main.py              # Application entry point
-│   ├── gui.py               # Modern CustomTkinter UI
-│   ├── device_manager.py    # WMI device detection
-│   └── user_profile.py      # User profile management
-├── run_dashboard.py         # Launcher script
-├── build.bat                # Build executable & installer
-├── create_shortcuts.py      # Create desktop & Start Menu shortcuts
-├── installer_script.iss     # Inno Setup installer configuration
-├── app_icon.ico             # Application icon
-├── requirements.txt         # Python dependencies
+│   ├── main.py                  # Application entry point
+│   ├── gui.py                   # Modern CustomTkinter UI (3 views)
+│   ├── device_manager.py        # WMI device detection
+│   ├── user_profile.py          # Enhanced user profile with security
+│   └── system_activity_log.py   # Activity tracking & logging (NEW!)
+├── run_dashboard.py             # Launcher script
+├── build.bat                    # Build executable & installer (auto-cleanup)
+├── create_shortcuts.py          # Create desktop & Start Menu shortcuts
+├── installer_script.iss         # Inno Setup installer configuration
+├── app_icon.ico                 # Application icon
+├── requirements.txt             # Python dependencies
+├── user_profile.json            # User data (auto-generated, git-ignored)
+├── system_activity.json         # Activity log data (auto-generated, git-ignored)
 └── README.md
 ```
 
@@ -171,30 +205,54 @@ HID-Desktop-Application-Test-1/
 
 ## 💡 Key Components
 
-### Statistics Dashboard
+### 📊 Statistics Dashboard
 Four real-time cards displaying:
 - Total device count
 - USB device count
 - HID device count (keyboards, mice)
 - Network adapter count
 
-### Device Tree View
+### 🌲 Device Tree View
 - Hierarchical display by category
 - Expandable/collapsible groups
-- Color-coded status indicators
+- Color-coded status indicators (🟢🟡🔴)
 - Preserves state during refresh
+- Auto-detects device changes
 
-### Device Details Panel
+### 📝 Device Details Panel
 - All device information displayed clearly
 - Read-only fields for viewing
 - One-click copy to clipboard
 - Scrollable for long paths
 
-### User Profile Page
-- Editable user information
-- Circular avatar with initial
-- Modern form inputs
-- Profile persistence
+### 📋 Activity Log View (NEW!)
+- **Real-time Activity Feed** - Scrollable list of all system events
+- **Statistics Cards** - Today's activity, connections, disconnections, total events
+- **Smart Filtering** - Filter by activity type (All, Connected, Disconnected, System, Profile)
+- **Activity Items** - Each entry shows:
+  - Severity indicator bar (color-coded)
+  - Activity type icon
+  - Device name and message
+  - Detailed information (VID, PID, manufacturer)
+  - Precise timestamp (date + time)
+- **Export Functionality** - Export filtered logs to JSON
+- **Log Management** - Clear all logs with confirmation
+- **Auto-Tracking** - Automatically logs all device changes in background
+
+### 👤 Enhanced User Profile Page (UPDATED!)
+- **Two-Panel Security Design:**
+  - Left: Personal Information (Name, Unique ID, Email)
+  - Right: Security Credentials (Password, Security Key, Hash)
+- **Security Features:**
+  - Password visibility toggle (👁️/🙈)
+  - Auto-generated security key
+  - Real-time SHA-256 hash display
+  - Read-only fields for security data
+- **Professional UI:**
+  - Circular avatar with user icon
+  - Icon indicators for each field
+  - Clean dark-themed design
+  - Activity logging for all changes
 
 ## 🐛 Troubleshooting
 
@@ -217,13 +275,15 @@ build.bat
 ```
 
 This single command does **everything** automatically:
-1. ✅ Checks and installs Python dependencies (PyInstaller, WinShell, pywin32)
-2. ✅ Builds standalone executable → `dist\DeviceMonitorPro.exe`
-3. ✅ Prompts to create Desktop & Start Menu shortcuts
-4. ✅ Prompts to build professional Windows installer
-5. ✅ Auto-downloads and silently installs Inno Setup if not found
-6. ✅ Compiles installer → `installer\DeviceMonitorPro_Setup_v1.0.0.exe`
-7. ✅ Runs installer to install the app properly
+1. ✅ Stops any running instances of the app
+2. ✅ Cleans build directories (prevents "Access Denied" errors)
+3. ✅ Checks and installs Python dependencies (PyInstaller, WinShell, pywin32)
+4. ✅ Builds standalone executable → `dist\DeviceMonitorPro.exe`
+5. ✅ Prompts to create Desktop & Start Menu shortcuts
+6. ✅ Prompts to build professional Windows installer
+7. ✅ Auto-downloads and silently installs Inno Setup if not found
+8. ✅ Compiles installer → `installer\DeviceMonitorPro_Setup_v1.0.0.exe`
+9. ✅ Runs installer to install the app properly
 
 **Result:** Fully installed app registered with Windows, ready to uninstall from Settings!
 
@@ -270,12 +330,39 @@ python run_dashboard.py
 
 ### Dependencies
 ```
-wmi            # Windows Management Instrumentation
-pywin32        # Windows extensions
-customtkinter  # Modern UI framework
-pyinstaller    # EXE builder
-winshell       # Shortcut creation
+wmi                # Windows Management Instrumentation
+pywin32            # Windows extensions
+customtkinter      # Modern UI framework
+pyinstaller        # EXE builder
+winshell           # Shortcut creation
+hashlib (built-in) # Password hashing (SHA-256)
+secrets (built-in) # Security key generation
+json (built-in)    # Data persistence
+datetime (built-in)# Timestamp tracking
+threading          # Background operations
 ```
+
+## 📊 Application Views
+
+### 1. Dashboard (📊)
+- Real-time device monitoring
+- Statistics cards
+- Device tree with categories
+- Detailed device information
+- Search and filtering
+
+### 2. Activity Log (📋) - NEW!
+- Real-time activity feed
+- Device connection/disconnection tracking
+- System event logging
+- Statistics dashboard
+- Export and filter capabilities
+
+### 3. User Profile (👤) - UPDATED!
+- Personal information management
+- Security credentials
+- Password and key management
+- SHA-256 hash display
 
 ## 🤝 Contributing
 
