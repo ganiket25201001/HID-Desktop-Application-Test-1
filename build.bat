@@ -4,6 +4,21 @@ echo Device Monitor Pro - Build Tool
 echo ========================================
 echo.
 
+REM Stop any running instances of the app
+echo Checking for running instances...
+taskkill /F /IM DeviceMonitorPro.exe 2>nul
+timeout /t 1 /nobreak >nul
+
+REM Clean build directories
+echo Cleaning build directories...
+if exist "dist" (
+    rmdir /s /q "dist" 2>nul
+)
+if exist "build" (
+    rmdir /s /q "build" 2>nul
+)
+echo.
+
 REM Activate virtual environment
 call .venv\Scripts\activate.bat
 
