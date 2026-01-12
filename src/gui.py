@@ -1129,34 +1129,55 @@ class DashboardApp(ctk.CTk):
         if self.current_view != "dashboard" or not hasattr(self, 'tree_physical'):
             return
 
-        # Capture state from both trees
-        selected_path = None
-        active_tree = None
-        
-        for tree in [self.tree_physical, self.tree_virtual]:
+        # Helper to capture state
+        def get_tree_state(tree):
+            state = {
+                "selected": None, # dict or string
+                "expanded": set() # set of category names
+            }
+            
+            # Capture Expanded Categories
+            for child in tree.get_children():
+                if tree.item(child, 'open'):
+                    # Check for new deterministic IID (cat_...) or fallback to parsing
+                    iid = child
+                    if iid.startswith("cat_"):
+                        state["expanded"].add(iid[4:]) # remove "cat_"
+                    else:
+                        # Fallback for initial state text parsing
+                        text = tree.item(child, "text") 
+                        try:
+                            # Extract category name from " 🔌 USB (N)"
+                            parts = text.split(" (")[0].strip().split(" ")
+                            if len(parts) >= 1:
+                                cat_guess = parts[-1]
+                                if cat_guess:
+                                    state["expanded"].add(cat_guess)
+                        except:
+                            pass
+
+            # Capture Selection
             selection = tree.selection()
             if selection:
                 iid = selection[0]
                 if iid in self.current_devices:
-                    selected_path = self.current_devices[iid].get('path')
-                    active_tree = tree
-                    break
-        
-        # Capture expanded categories from both trees
-        expanded_physical = []
-        expanded_virtual = []
-        
-        for child in self.tree_physical.get_children():
-            if self.tree_physical.item(child, 'open'):
-                text = self.tree_physical.item(child, "text")
-                cat_name = text.split(" (")[0]
-                expanded_physical.append(cat_name)
-        
-        for child in self.tree_virtual.get_children():
-            if self.tree_virtual.item(child, 'open'):
-                text = self.tree_virtual.item(child, "text")
-                cat_name = text.split(" (")[0]
-                expanded_virtual.append(cat_name)
+                    state["selected"] = {"type": "device", "path": self.current_devices[iid].get('path')}
+                elif iid.startswith("cat_"):
+                    state["selected"] = {"type": "category", "cat": iid[4:]}
+                else:
+                    # Fallback for old category IID
+                    try:
+                        text = tree.item(iid, "text")
+                        parts = text.split(" (")[0].strip().split(" ")
+                        if len(parts) >= 1:
+                            cat_guess = parts[-1]
+                            state["selected"] = {"type": "category", "cat": cat_guess}
+                    except:
+                        pass
+            return state
+
+        phys_state = get_tree_state(self.tree_physical)
+        virt_state = get_tree_state(self.tree_virtual)
 
         # Filter
         search_query = ""
@@ -1180,24 +1201,10 @@ class DashboardApp(ctk.CTk):
         self.current_devices = {}
         
         # Update Physical Devices Tab
-        self._populate_tree(
-            self.tree_physical, 
-            physical_devices, 
-            expanded_physical, 
-            search_query, 
-            selected_path, 
-            active_tree
-        )
+        self._populate_tree(self.tree_physical, physical_devices, phys_state, search_query)
         
         # Update Virtual Devices Tab
-        self._populate_tree(
-            self.tree_virtual, 
-            virtual_devices, 
-            expanded_virtual, 
-            search_query, 
-            selected_path, 
-            active_tree
-        )
+        self._populate_tree(self.tree_virtual, virtual_devices, virt_state, search_query)
 
         # Update status
         if hasattr(self, 'lbl_status') and self.last_update_time:
@@ -1209,8 +1216,8 @@ class DashboardApp(ctk.CTk):
                 text_color="#27AE60"
             )
     
-    def _populate_tree(self, tree, devices, expanded_categories, search_query, selected_path, active_tree):
-        """Populate a tree view with devices with enhanced icons."""
+    def _populate_tree(self, tree, devices, tree_state, search_query):
+        """Populate a tree view with devices with persistent selection."""
         if not devices:
             tree.insert("", "end", text="  ℹ️ No devices found")
             return
@@ -1239,9 +1246,21 @@ class DashboardApp(ctk.CTk):
             if not dev_list:
                 continue
 
-            is_open = bool(search_query) or cat in expanded_categories
+            # Deterministic IID for category
+            cat_iid = f"cat_{cat}"
+
+            is_open = bool(search_query) or cat in tree_state["expanded"]
             cat_icon = category_icons.get(cat, "📁")
-            cat_id = tree.insert("", "end", text=f" {cat_icon} {cat} ({len(dev_list)})", open=is_open)
+            
+            # Avoid duplicate insertion if somehow called incorrectly, though we cleared tree
+            if not tree.exists(cat_iid):
+                tree.insert("", "end", iid=cat_iid, text=f" {cat_icon} {cat} ({len(dev_list)})", open=is_open)
+            
+            # Check for category selection restoration
+            sel_state = tree_state.get("selected")
+            if sel_state and sel_state["type"] == "category" and sel_state["cat"] == cat:
+                tree.selection_set(cat_iid)
+                tree.see(cat_iid)
             
             for d in dev_list:
                 status_str = str(d['status']).lower()
@@ -1253,11 +1272,11 @@ class DashboardApp(ctk.CTk):
                     status_icon = "⚠️"
                     
                 display_text = f"   {status_icon} {d['name']}"
-                child_id = tree.insert(cat_id, "end", text=display_text)
+                child_id = tree.insert(cat_iid, "end", text=display_text)
                 self.current_devices[child_id] = d
                 
-                # Restore selection if it was in this tree
-                if selected_path and d.get('path') == selected_path and tree == active_tree:
+                # Restore device selection (check path)
+                if sel_state and sel_state["type"] == "device" and d.get('path') == sel_state["path"]:
                     tree.selection_set(child_id)
                     tree.see(child_id)
     
