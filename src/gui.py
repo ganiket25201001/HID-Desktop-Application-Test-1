@@ -1148,10 +1148,22 @@ class DashboardApp(ctk.CTk):
     def _trigger_autoscan_ui(self, path):
         """Switch to scan view and start scanning."""
         self.show_custom_scan()
-        if hasattr(self, 'path_entry'):
-            self.path_entry.delete(0, "end")
-            self.path_entry.insert(0, path)
-            self._start_scan()
+        
+        # Force refresh of drive list to ensure new drive is there
+        self._populate_drives()
+        
+        if hasattr(self, 'drive_combobox'):
+            # Try to match the drive letter in the combobox values
+            values = self.drive_combobox.cget("values")
+            target = None
+            for v in values:
+                if v.startswith(str(path)):
+                    target = v
+                    break
+            
+            if target:
+                self.drive_combobox.set(target)
+                self.after(500, self._start_scan)
 
     
     def _enable_refresh_button(self):
@@ -1406,9 +1418,12 @@ class DashboardApp(ctk.CTk):
         header_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         header_frame.pack(fill="x", pady=(0, 20))
         
+        # Icon for the page (User asked for icon)
+        ctk.CTkLabel(header_frame, text="💾", font=ctk.CTkFont(size=28)).pack(side="left", padx=(0, 10))
+        
         ctk.CTkLabel(
             header_frame, 
-            text="📂 Custom Drive Scan", 
+            text="USB Drive Scan", 
             font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=24, weight="bold")
         ).pack(side="left")
 
@@ -1418,23 +1433,35 @@ class DashboardApp(ctk.CTk):
         
         ctk.CTkLabel(
             controls_frame, 
-            text="Select Drive or Folder path to analyze:", 
+            text="Select Drive:", 
             font=ctk.CTkFont(size=14)
         ).pack(side="left", padx=20)
         
-        self.path_entry = ctk.CTkEntry(
+        self.drive_combobox = ctk.CTkComboBox(
             controls_frame,
-            width=400,
-            placeholder_text="E.g. E:\\ or D:\\Backups"
+            width=350,
+            values=["Scanning for devices..."],
+            command=self._on_drive_select
         )
-        self.path_entry.pack(side="left", padx=10)
+        self.drive_combobox.pack(side="left", padx=10)
         
+        self.btn_refresh_drives = ctk.CTkButton(
+            controls_frame,
+            text="🔄",
+            width=40,
+            command=self._populate_drives,
+            fg_color=Theme.SECONDARY,
+            hover_color=Theme.SECONDARY_Hover
+        )
+        self.btn_refresh_drives.pack(side="left", padx=5)
+
         self.btn_browse = ctk.CTkButton(
             controls_frame,
-            text="Browse",
-            width=80,
+            text="📂 Browse...",
+            width=100,
             command=self._browse_folder,
-            fg_color=Theme.SECONDARY
+            fg_color=Theme.SECONDARY,
+            hover_color=Theme.SECONDARY_Hover
         )
         self.btn_browse.pack(side="left", padx=5)
         
@@ -1451,18 +1478,70 @@ class DashboardApp(ctk.CTk):
         self.results_frame = ctk.CTkScrollableFrame(self.main_container, fg_color="transparent")
         self.results_frame.pack(fill="both", expand=True)
 
+        # Auto-scan for drives
+        self.after(100, self._populate_drives)
+
+    def _populate_drives(self):
+        """Scan for USB drives and populate the dropdown."""
+        try:
+            devices = self.dm.get_all_devices()
+            drive_options = []
+            
+            for d in devices:
+                # Check for Storage devices that are mounted
+                if d.get('category') == 'Storage' and d.get('mount_point') and d.get('mount_point') != 'N/A':
+                    # Filter for USB if possible, or show all removable
+                    is_usb = 'USB' in str(d.get('interface_type', '')).upper()
+                    
+                    # Format: "E: - Name (USB)"
+                    label = f"{d['mount_point']} - {d['name']}"
+                    if is_usb:
+                        label += " (USB)"
+                    else:
+                        label += f" ({d.get('interface_type', 'Unknown')})"
+                        
+                    drive_options.append(label)
+
+            if not drive_options:
+                drive_options = ["No USB Drives Found"]
+            
+            self.drive_combobox.configure(values=drive_options)
+            self.drive_combobox.set(drive_options[0])
+            
+        except Exception as e:
+            print(f"Error populating drives: {e}")
+            self.drive_combobox.configure(values=["Error scanning drives"])
+
     def _browse_folder(self):
         folder = filedialog.askdirectory()
         if folder:
-            self.path_entry.delete(0, "end")
-            self.path_entry.insert(0, folder)
+            # Add to combobox values temporarily or just set it
+            current_values = list(self.drive_combobox.cget("values"))
+            if folder not in current_values:
+                current_values.append(folder)
+                self.drive_combobox.configure(values=current_values)
+            self.drive_combobox.set(folder)
+
+    def _on_drive_select(self, choice):
+        pass
 
     def _start_scan(self):
-        path = self.path_entry.get()
-        if not path:
-            messagebox.showwarning("Input Required", "Please enter or select a path to scan.")
+        selection = self.drive_combobox.get()
+        if not selection or selection == "No USB Drives Found" or selection == "Scanning for devices..." or selection == "Error scanning drives":
+            messagebox.showwarning("Input Required", "Please select a valid drive or path.")
             return
 
+        # Extract path
+        path = selection
+        # Handle "E: - Name" format
+        if " - " in selection:
+             parts = selection.split(" - ")
+             # Check if first part is like "E:"
+             if len(parts) > 0 and len(parts[0]) == 2 and parts[0][1] == ':':
+                 path = parts[0] + "\\"
+        
+        # If user browsed a folder, the path is already full path (e.g. "D:/Backups")
+        
         # Clear previous results
         for widget in self.results_frame.winfo_children():
             widget.destroy()

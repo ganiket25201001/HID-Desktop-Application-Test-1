@@ -304,6 +304,7 @@ class DeviceManager:
                 "name": name,
                 "category": "Storage",
                 "type": item.MediaType or "Disk Drive",
+                "interface_type": item.InterfaceType or "Unknown",
                 "port_type": port_type,
                 "vid": "N/A",
                 "pid": "N/A",
