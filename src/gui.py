@@ -59,28 +59,47 @@ class DashboardApp(ctk.CTk):
     def _setup_layout(self):
         """Setup the main layout with sidebar and content area."""
         # --- Sidebar ---
-        self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
+        self.sidebar = ctk.CTkFrame(self, width=240, corner_radius=0, fg_color=("#1a1a1a", "#0d0d0d"))
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_rowconfigure(10, weight=1)
         
-        # Logo
+        # Logo with gradient-like effect
+        logo_container = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        logo_container.grid(row=0, column=0, padx=20, pady=(30, 40))
+        
+        ctk.CTkLabel(
+            logo_container,
+            text="⚡",
+            font=ctk.CTkFont(size=32)
+        ).pack()
+        
         self.logo_label = ctk.CTkLabel(
-            self.sidebar,
-            text="DEVICE\nMONITOR PRO",
-            font=ctk.CTkFont(size=22, weight="bold")
+            logo_container,
+            text="DEVICE MONITOR",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=("#3B8ED0", "#5CA8E0")
         )
-        self.logo_label.grid(row=0, column=0, padx=20, pady=(30, 40))
+        self.logo_label.pack()
+        
+        ctk.CTkLabel(
+            logo_container,
+            text="PRO",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="gray"
+        ).pack()
 
-        # Navigation Buttons
+        # Navigation Buttons with improved styling
         self.dash_btn = ctk.CTkButton(
             self.sidebar,
             text="📊 Dashboard",
             command=self.show_dashboard,
             anchor="w",
-            height=40,
-            font=ctk.CTkFont(size=14)
+            height=45,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            corner_radius=8,
+            hover_color=("#2E77B5", "#1A5687")
         )
-        self.dash_btn.grid(row=1, column=0, padx=20, pady=5, sticky="ew")
+        self.dash_btn.grid(row=1, column=0, padx=20, pady=8, sticky="ew")
         
         self.activity_btn = ctk.CTkButton(
             self.sidebar,
@@ -88,10 +107,12 @@ class DashboardApp(ctk.CTk):
             command=self.show_activity_log,
             fg_color="transparent",
             anchor="w",
-            height=40,
-            font=ctk.CTkFont(size=14)
+            height=45,
+            font=ctk.CTkFont(size=14),
+            corner_radius=8,
+            hover_color=("#2B2B2B", "#1F1F1F")
         )
-        self.activity_btn.grid(row=2, column=0, padx=20, pady=5, sticky="ew")
+        self.activity_btn.grid(row=2, column=0, padx=20, pady=8, sticky="ew")
         
         self.profile_btn = ctk.CTkButton(
             self.sidebar,
@@ -99,19 +120,37 @@ class DashboardApp(ctk.CTk):
             command=self.show_profile,
             fg_color="transparent",
             anchor="w",
-            height=40,
-            font=ctk.CTkFont(size=14)
+            height=45,
+            font=ctk.CTkFont(size=14),
+            corner_radius=8,
+            hover_color=("#2B2B2B", "#1F1F1F")
         )
-        self.profile_btn.grid(row=3, column=0, padx=20, pady=5, sticky="ew")
-
-        # User Info at Bottom
-        self.user_label = ctk.CTkLabel(
+        self.profile_btn.grid(row=3, column=0, padx=20, pady=8, sticky="ew")
+        
+        # Divider
+        ctk.CTkFrame(
             self.sidebar,
-            text=f"User: {self.user_profile.name}",
-            font=ctk.CTkFont(size=11),
-            text_color="gray"
+            height=2,
+            fg_color=("#2B2B2B", "#1F1F1F")
+        ).grid(row=9, column=0, padx=30, pady=20, sticky="ew")
+
+        # User Info at Bottom with better styling
+        user_container = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        user_container.grid(row=11, column=0, pady=(0, 20), padx=20)
+        
+        ctk.CTkLabel(
+            user_container,
+            text="👤",
+            font=ctk.CTkFont(size=14)
+        ).pack(side="left", padx=(0, 8))
+        
+        self.user_label = ctk.CTkLabel(
+            user_container,
+            text=self.user_profile.name,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=("#3B8ED0", "#5CA8E0")
         )
-        self.user_label.grid(row=11, column=0, pady=(0, 20))
+        self.user_label.pack(side="left")
 
         # --- Main Content Area ---
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
@@ -133,10 +172,22 @@ class DashboardApp(ctk.CTk):
         self._clear_content()
         self.current_view = "dashboard"
         
-        # Update button states
-        self.dash_btn.configure(fg_color=["#3B8ED0", "#1F6AA5"])
-        self.activity_btn.configure(fg_color="transparent")
-        self.profile_btn.configure(fg_color="transparent")
+        # Update button states with enhanced visual feedback
+        self.dash_btn.configure(
+            fg_color=("#3B8ED0", "#1F6AA5"),
+            text="📊 Dashboard",
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        self.activity_btn.configure(
+            fg_color="transparent",
+            text="📋 Activity Log",
+            font=ctk.CTkFont(size=14)
+        )
+        self.profile_btn.configure(
+            fg_color="transparent",
+            text="👤 User Profile",
+            font=ctk.CTkFont(size=14)
+        )
         
         # Log activity
         self.activity_log.log_activity(ActivityType.REFRESH_TRIGGERED, "Dashboard refreshed", "System")
@@ -146,56 +197,88 @@ class DashboardApp(ctk.CTk):
         self.stats_frame.grid(row=0, column=0, sticky="ew", pady=(0, 20))
         
         self.stats_cards = {
-            "total": self._create_stat_card(self.stats_frame, "Total Devices", "0", "📊", 0),
-            "usb": self._create_stat_card(self.stats_frame, "USB", "0", "🔌", 1),
-            "hid": self._create_stat_card(self.stats_frame, "HID", "0", "🖱️", 2),
-            "network": self._create_stat_card(self.stats_frame, "Network", "0", "🌐", 3),
+            "total": self._create_stat_card(self.stats_frame, "Total Devices", "0", "�", 0, "#3B8ED0"),
+            "usb": self._create_stat_card(self.stats_frame, "USB Devices", "0", "🔌", 1, "#27AE60"),
+            "hid": self._create_stat_card(self.stats_frame, "HID Devices", "0", "⌨️", 2, "#F39C12"),
+            "network": self._create_stat_card(self.stats_frame, "Network", "0", "🌐", 3, "#9B59B6"),
         }
 
         # 2. Action Bar (Search + Refresh)
         self.action_bar = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.action_bar.grid(row=1, column=0, sticky="ew", pady=(0, 15))
         
+        # Search container with icon
+        search_container = ctk.CTkFrame(self.action_bar, fg_color="transparent")
+        search_container.pack(side="left")
+        
         self.search_entry = ctk.CTkEntry(
-            self.action_bar,
-            placeholder_text="🔍 Search devices...",
-            width=350,
-            height=35,
-            font=ctk.CTkFont(size=13)
+            search_container,
+            placeholder_text="🔍 Search devices by name, category, or manufacturer...",
+            width=450,
+            height=40,
+            font=ctk.CTkFont(size=13),
+            corner_radius=10,
+            border_width=2
         )
         self.search_entry.pack(side="left")
         self.search_entry.bind("<KeyRelease>", lambda e: self._on_search_changed())
         
+        # Status with icon
+        status_frame = ctk.CTkFrame(self.action_bar, fg_color="transparent")
+        status_frame.pack(side="right", padx=(10, 0))
+        
         self.refresh_btn = ctk.CTkButton(
-            self.action_bar,
+            status_frame,
             text="🔄 Refresh",
             command=self._manual_refresh,
-            width=120,
-            height=35,
-            font=ctk.CTkFont(size=13, weight="bold")
+            width=130,
+            height=40,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            corner_radius=10,
+            fg_color=("#27AE60", "#229954"),
+            hover_color=("#1E8449", "#196F3D")
         )
         self.refresh_btn.pack(side="right", padx=(10, 0))
         
         self.lbl_status = ctk.CTkLabel(
-            self.action_bar,
-            text="Ready",
-            font=ctk.CTkFont(size=12),
-            text_color="gray"
+            status_frame,
+            text="⚡ Ready",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=("#3B8ED0", "#5CA8E0")
         )
         self.lbl_status.pack(side="right", padx=15)
 
-        # 3. Content Body (Tree + Details)
+        # 3. Content Body (Tabbed Tree + Details)
         self.body_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.body_frame.grid(row=2, column=0, sticky="nsew")
         self.main_container.grid_rowconfigure(2, weight=1)
         self.body_frame.grid_columnconfigure(0, weight=2)
         self.body_frame.grid_columnconfigure(1, weight=1)
 
-        # Tree View Panel
-        self.tree_frame = ctk.CTkFrame(self.body_frame)
+        # Tree View Panel with Tabs
+        self.tree_frame = ctk.CTkFrame(
+            self.body_frame,
+            corner_radius=12,
+            border_width=2,
+            border_color=("#3B8ED0", "#1F6AA5")
+        )
         self.tree_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         
-        # Configure ttk.Treeview style for dark theme
+        # Create Tab View for Physical and Virtual with enhanced styling
+        self.device_tabview = ctk.CTkTabview(
+            self.tree_frame,
+            corner_radius=10,
+            segmented_button_fg_color=("#2B2B2B", "#1A1A1A"),
+            segmented_button_selected_color=("#3B8ED0", "#1F6AA5"),
+            segmented_button_selected_hover_color=("#2E77B5", "#1A5687")
+        )
+        self.device_tabview.pack(expand=True, fill="both", padx=8, pady=8)
+        
+        # Add tabs with enhanced icons
+        self.device_tabview.add("🔌 Physical Devices")
+        self.device_tabview.add("💻 Virtual Devices")
+        
+        # Configure ttk.Treeview style for dark theme with enhanced styling
         style = ttk.Style()
         style.theme_use('clam')
         style.configure("Treeview",
@@ -203,41 +286,92 @@ class DashboardApp(ctk.CTk):
                        foreground="white",
                        fieldbackground="#2B2B2B",
                        borderwidth=0,
-                       rowheight=30,
-                       font=('Segoe UI', 10))
-        style.map('Treeview', background=[('selected', '#1F6AA5')])
+                       rowheight=35,
+                       font=('Segoe UI', 11))
+        style.map('Treeview', 
+                 background=[('selected', '#3B8ED0')],
+                 foreground=[('selected', 'white')])
         style.configure("Treeview.Heading",
                        background="#1F1F1F",
-                       foreground="white",
+                       foreground="#3B8ED0",
                        borderwidth=0,
-                       font=('Segoe UI', 10, 'bold'))
+                       font=('Segoe UI', 11, 'bold'))
         
-        self.tree = ttk.Treeview(self.tree_frame, show="tree", selectmode="browse")
-        self.tree.pack(expand=True, fill="both", padx=5, pady=5)
-        self.tree.bind("<<TreeviewSelect>>", self._on_device_select)
+        # Create Treeview for Physical Devices
+        physical_container = ctk.CTkFrame(
+            self.device_tabview.tab("🔌 Physical Devices"),
+            fg_color="transparent"
+        )
+        physical_container.pack(expand=True, fill="both", padx=5, pady=5)
+        
+        self.tree_physical = ttk.Treeview(
+            physical_container, 
+            show="tree", 
+            selectmode="browse"
+        )
+        self.tree_physical.pack(expand=True, fill="both")
+        self.tree_physical.bind("<<TreeviewSelect>>", self._on_device_select)
+        
+        # Create Treeview for Virtual Devices
+        virtual_container = ctk.CTkFrame(
+            self.device_tabview.tab("💻 Virtual Devices"),
+            fg_color="transparent"
+        )
+        virtual_container.pack(expand=True, fill="both", padx=5, pady=5)
+        
+        self.tree_virtual = ttk.Treeview(
+            virtual_container, 
+            show="tree", 
+            selectmode="browse"
+        )
+        self.tree_virtual.pack(expand=True, fill="both")
+        self.tree_virtual.bind("<<TreeviewSelect>>", self._on_device_select)
+        
+        # Keep reference to active tree (for backward compatibility)
+        self.tree = self.tree_physical
 
         # Details Panel
-        self.details_frame = ctk.CTkScrollableFrame(self.body_frame, fg_color=("#DBDBDB", "#2B2B2B"))
+        self.details_frame = ctk.CTkScrollableFrame(
+            self.body_frame, 
+            fg_color=("#DBDBDB", "#2B2B2B"),
+            corner_radius=12,
+            border_width=2,
+            border_color=("#F39C12", "#D68910")
+        )
         self.details_frame.grid(row=0, column=1, sticky="nsew")
         
-        # Details Header
+        # Details Header with enhanced styling
         self.details_header = ctk.CTkFrame(self.details_frame, fg_color="transparent")
         self.details_header.pack(fill="x", padx=15, pady=(15, 10))
         
+        # Icon + Title
+        header_content = ctk.CTkFrame(self.details_header, fg_color="transparent")
+        header_content.pack(side="left")
+        
         ctk.CTkLabel(
-            self.details_header,
+            header_content,
+            text="📋",
+            font=ctk.CTkFont(size=20)
+        ).pack(side="left", padx=(0, 8))
+        
+        ctk.CTkLabel(
+            header_content,
             text="Device Details",
-            font=ctk.CTkFont(size=18, weight="bold")
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color=("#F39C12", "#D68910")
         ).pack(side="left")
         
         self.btn_copy = ctk.CTkButton(
             self.details_header,
             text="📋 Copy",
             command=self._copy_device_info,
-            width=90,
-            height=30,
+            width=100,
+            height=35,
             state="disabled",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(size=12, weight="bold"),
+            corner_radius=8,
+            fg_color=("#3B8ED0", "#1F6AA5"),
+            hover_color=("#2E77B5", "#1A5687")
         )
         self.btn_copy.pack(side="right")
         
@@ -246,6 +380,7 @@ class DashboardApp(ctk.CTk):
             "Name": ctk.StringVar(),
             "Category": ctk.StringVar(),
             "Type": ctk.StringVar(),
+            "Port Type": ctk.StringVar(),
             "Status": ctk.StringVar(),
             "Manufacturer": ctk.StringVar(),
             "VID": ctk.StringVar(),
@@ -260,56 +395,93 @@ class DashboardApp(ctk.CTk):
         # Initial Load
         self._refresh_data()
 
-    def _create_stat_card(self, parent, title, value, icon, col):
-        """Create a statistics card widget."""
-        card = ctk.CTkFrame(parent, height=100)
-        card.grid(row=0, column=col, padx=5, sticky="nsew")
+    def _create_stat_card(self, parent, title, value, icon, col, accent_color="#3B8ED0"):
+        """Create a statistics card widget with enhanced styling."""
+        card = ctk.CTkFrame(
+            parent, 
+            height=110,
+            corner_radius=12,
+            border_width=2,
+            border_color=(accent_color, accent_color)
+        )
+        card.grid(row=0, column=col, padx=8, sticky="nsew")
         parent.grid_columnconfigure(col, weight=1)
         
-        # Icon label
-        ctk.CTkLabel(
+        # Icon with colored background
+        icon_frame = ctk.CTkFrame(
             card,
+            width=50,
+            height=50,
+            corner_radius=25,
+            fg_color=(accent_color, accent_color)
+        )
+        icon_frame.pack(pady=(12, 8))
+        icon_frame.pack_propagate(False)
+        
+        ctk.CTkLabel(
+            icon_frame,
             text=icon,
             font=ctk.CTkFont(size=24)
-        ).pack(pady=(15, 5))
+        ).pack(expand=True)
         
         # Value label
         value_var = ctk.StringVar(value=value)
         ctk.CTkLabel(
             card,
             textvariable=value_var,
-            font=ctk.CTkFont(size=26, weight="bold")
-        ).pack(pady=5)
+            font=ctk.CTkFont(size=28, weight="bold"),
+            text_color=(accent_color, accent_color)
+        ).pack(pady=2)
         
         # Title label
         ctk.CTkLabel(
             card,
             text=title,
-            font=ctk.CTkFont(size=11),
+            font=ctk.CTkFont(size=11, weight="bold"),
             text_color="gray"
-        ).pack(pady=(5, 15))
+        ).pack(pady=(2, 12))
         
         return value_var
 
     def _create_detail_field(self, parent, label, variable):
-        """Create a detail field row."""
+        """Create a detail field row with enhanced styling."""
         row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(fill="x", padx=15, pady=5)
+        row.pack(fill="x", padx=15, pady=6)
         
+        # Label with icon based on field type
+        label_icons = {
+            "Name": "📝",
+            "Category": "📁",
+            "Type": "🔧",
+            "Port Type": "🔌",
+            "Status": "📊",
+            "Manufacturer": "🏢",
+            "VID": "🆔",
+            "PID": "🆔",
+            "Driver": "⚙️",
+            "Path": "📍"
+        }
+        
+        label_frame = ctk.CTkFrame(row, fg_color="transparent")
+        label_frame.pack(anchor="w", pady=(0, 3))
+        
+        icon = label_icons.get(label, "•")
         ctk.CTkLabel(
-            row,
-            text=label.upper(),
-            font=ctk.CTkFont(size=9, weight="bold"),
-            text_color="gray",
+            label_frame,
+            text=f"{icon} {label.upper()}",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color=("#3B8ED0", "#5CA8E0"),
             anchor="w"
-        ).pack(anchor="w")
+        ).pack(side="left")
         
         entry = ctk.CTkEntry(
             row,
             textvariable=variable,
             state="readonly",
             font=ctk.CTkFont(size=12),
-            height=30
+            height=35,
+            corner_radius=8,
+            border_width=1
         )
         entry.pack(fill="x", pady=(2, 0))
 
@@ -321,10 +493,22 @@ class DashboardApp(ctk.CTk):
         self._clear_content()
         self.current_view = "profile"
         
-        # Update button states
-        self.dash_btn.configure(fg_color="transparent")
-        self.activity_btn.configure(fg_color="transparent")
-        self.profile_btn.configure(fg_color=["#3B8ED0", "#1F6AA5"])
+        # Update button states with enhanced visual feedback
+        self.dash_btn.configure(
+            fg_color="transparent",
+            text="📊 Dashboard",
+            font=ctk.CTkFont(size=14)
+        )
+        self.activity_btn.configure(
+            fg_color="transparent",
+            text="📋 Activity Log",
+            font=ctk.CTkFont(size=14)
+        )
+        self.profile_btn.configure(
+            fg_color=("#3B8ED0", "#1F6AA5"),
+            text="👤 User Profile",
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
         
         # Main container with padding
         main_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
@@ -635,7 +819,7 @@ class DashboardApp(ctk.CTk):
             self.activity_log.log_activity(ActivityType.PROFILE_UPDATED, "User profile updated", self.user_profile.name)
             
             # Update Sidebar
-            self.user_label.configure(text=f"User: {self.user_profile.name}")
+            self.user_label.configure(text=self.user_profile.name)
             messagebox.showinfo("Success", "✅ Profile updated successfully!")
         except Exception as e:
             messagebox.showerror("Error", f"❌ Failed to save profile: {e}")
@@ -648,10 +832,22 @@ class DashboardApp(ctk.CTk):
         self._clear_content()
         self.current_view = "activity_log"
         
-        # Update button states
-        self.dash_btn.configure(fg_color="transparent")
-        self.activity_btn.configure(fg_color=["#3B8ED0", "#1F6AA5"])
-        self.profile_btn.configure(fg_color="transparent")
+        # Update button states with enhanced visual feedback
+        self.dash_btn.configure(
+            fg_color="transparent",
+            text="📊 Dashboard",
+            font=ctk.CTkFont(size=14)
+        )
+        self.activity_btn.configure(
+            fg_color=("#3B8ED0", "#1F6AA5"),
+            text="📋 Activity Log",
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        self.profile_btn.configure(
+            fg_color="transparent",
+            text="👤 User Profile",
+            font=ctk.CTkFont(size=14)
+        )
         
         # Main container
         main_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
@@ -991,7 +1187,7 @@ class DashboardApp(ctk.CTk):
 
     def _on_search_changed(self):
         """Handle search text changes."""
-        if hasattr(self, 'tree'):
+        if hasattr(self, 'tree_physical') and hasattr(self, 'tree_virtual'):
             self._refresh_data()
 
     def _focus_search(self):
@@ -1009,12 +1205,12 @@ class DashboardApp(ctk.CTk):
         if self.current_view != "dashboard" or self.is_refreshing:
             return
         
-        if not hasattr(self, 'tree'):
+        if not hasattr(self, 'tree_physical') or not hasattr(self, 'tree_virtual'):
             return
         
         self.is_refreshing = True
         if hasattr(self, 'lbl_status'):
-            self.lbl_status.configure(text="🔄 Scanning devices...", text_color="#3B8ED0")
+            self.lbl_status.configure(text="⚡ Scanning devices...", text_color="#F39C12")
         if hasattr(self, 'refresh_btn'):
             self.refresh_btn.configure(state="disabled")
             
@@ -1059,24 +1255,38 @@ class DashboardApp(ctk.CTk):
             pass
 
     def _update_tree(self, devices):
-        """Update device tree with new data."""
-        if self.current_view != "dashboard" or not hasattr(self, 'tree'):
+        """Update device tree with new data, separating physical and virtual devices."""
+        if self.current_view != "dashboard" or not hasattr(self, 'tree_physical'):
             return
 
-        # Capture state
+        # Capture state from both trees
         selected_path = None
-        selection = self.tree.selection()
-        if selection:
-            iid = selection[0]
-            if iid in self.current_devices:
-                selected_path = self.current_devices[iid].get('path')
+        active_tree = None
         
-        expanded_categories = []
-        for child in self.tree.get_children():
-            if self.tree.item(child, 'open'):
-                text = self.tree.item(child, "text")
+        for tree in [self.tree_physical, self.tree_virtual]:
+            selection = tree.selection()
+            if selection:
+                iid = selection[0]
+                if iid in self.current_devices:
+                    selected_path = self.current_devices[iid].get('path')
+                    active_tree = tree
+                    break
+        
+        # Capture expanded categories from both trees
+        expanded_physical = []
+        expanded_virtual = []
+        
+        for child in self.tree_physical.get_children():
+            if self.tree_physical.item(child, 'open'):
+                text = self.tree_physical.item(child, "text")
                 cat_name = text.split(" (")[0]
-                expanded_categories.append(cat_name)
+                expanded_physical.append(cat_name)
+        
+        for child in self.tree_virtual.get_children():
+            if self.tree_virtual.item(child, 'open'):
+                text = self.tree_virtual.item(child, "text")
+                cat_name = text.split(" (")[0]
+                expanded_virtual.append(cat_name)
 
         # Filter
         search_query = ""
@@ -1087,17 +1297,52 @@ class DashboardApp(ctk.CTk):
                            or search_query in str(d.get('manufacturer', '')).lower()
                            or search_query in d['category'].lower()]
 
-        # Update Statistics
+        # Separate devices by port type
+        physical_devices = [d for d in devices if d.get('port_type', 'Physical') == 'Physical']
+        virtual_devices = [d for d in devices if d.get('port_type', 'Physical') == 'Virtual']
+
+        # Update Statistics (combined)
         self._update_statistics(devices)
 
-        # Clear and Repopulate Tree
-        self.tree.delete(*self.tree.get_children())
+        # Clear both trees
+        self.tree_physical.delete(*self.tree_physical.get_children())
+        self.tree_virtual.delete(*self.tree_virtual.get_children())
         self.current_devices = {}
         
+        # Update Physical Devices Tab
+        self._populate_tree(
+            self.tree_physical, 
+            physical_devices, 
+            expanded_physical, 
+            search_query, 
+            selected_path, 
+            active_tree
+        )
+        
+        # Update Virtual Devices Tab
+        self._populate_tree(
+            self.tree_virtual, 
+            virtual_devices, 
+            expanded_virtual, 
+            search_query, 
+            selected_path, 
+            active_tree
+        )
+
+        # Update status
+        if hasattr(self, 'lbl_status') and self.last_update_time:
+            time_str = self.last_update_time.strftime("%H:%M:%S")
+            phys_count = len(physical_devices)
+            virt_count = len(virtual_devices)
+            self.lbl_status.configure(
+                text=f"✅ Updated at {time_str} | 🔌{phys_count} Physical | 💻{virt_count} Virtual", 
+                text_color="#27AE60"
+            )
+    
+    def _populate_tree(self, tree, devices, expanded_categories, search_query, selected_path, active_tree):
+        """Populate a tree view with devices with enhanced icons."""
         if not devices:
-            empty_id = self.tree.insert("", "end", text="No devices found")
-            if hasattr(self, 'lbl_status'):
-                self.lbl_status.configure(text="No devices found", text_color="#F39C12")
+            tree.insert("", "end", text="  ℹ️ No devices found")
             return
         
         categories = {}
@@ -1107,6 +1352,17 @@ class DashboardApp(ctk.CTk):
                 categories[cat] = []
             categories[cat].append(d)
         
+        # Category icons mapping
+        category_icons = {
+            "USB": "🔌",
+            "HID": "⌨️",
+            "Keyboard": "⌨️",
+            "Mouse": "🖱️",
+            "Network": "🌐",
+            "Storage": "💾",
+            "Bluetooth": "📡"
+        }
+        
         # Insert by categories
         for cat in sorted(categories.keys()):
             dev_list = categories[cat]
@@ -1114,29 +1370,26 @@ class DashboardApp(ctk.CTk):
                 continue
 
             is_open = bool(search_query) or cat in expanded_categories
-            cat_id = self.tree.insert("", "end", text=f"{cat} ({len(dev_list)})", open=is_open)
+            cat_icon = category_icons.get(cat, "📁")
+            cat_id = tree.insert("", "end", text=f" {cat_icon} {cat} ({len(dev_list)})", open=is_open)
             
             for d in dev_list:
                 status_str = str(d['status']).lower()
                 if "ok" in status_str or "connected" in status_str:
-                    status_icon = "🟢"
+                    status_icon = "✅"
                 elif "disconnected" in status_str or "error" in status_str:
-                    status_icon = "🔴"
+                    status_icon = "❌"
                 else:
-                    status_icon = "🟡"
+                    status_icon = "⚠️"
                     
-                display_text = f"{status_icon}  {d['name']}"
-                child_id = self.tree.insert(cat_id, "end", text=display_text)
+                display_text = f"   {status_icon} {d['name']}"
+                child_id = tree.insert(cat_id, "end", text=display_text)
                 self.current_devices[child_id] = d
                 
-                if selected_path and d.get('path') == selected_path:
-                    self.tree.selection_set(child_id)
-                    self.tree.see(child_id)
-
-        # Update status
-        if hasattr(self, 'lbl_status') and self.last_update_time:
-            time_str = self.last_update_time.strftime("%H:%M:%S")
-            self.lbl_status.configure(text=f"✅ Updated at {time_str}", text_color="#27AE60")
+                # Restore selection if it was in this tree
+                if selected_path and d.get('path') == selected_path and tree == active_tree:
+                    tree.selection_set(child_id)
+                    tree.see(child_id)
     
     def _update_statistics(self, devices):
         """Update statistics cards with device counts."""
@@ -1155,7 +1408,10 @@ class DashboardApp(ctk.CTk):
 
     def _on_device_select(self, event):
         """Handle device selection in tree view."""
-        selection = self.tree.selection()
+        # Get the tree widget that triggered the event
+        tree = event.widget
+        selection = tree.selection()
+        
         if not selection:
             self.btn_copy.configure(state="disabled")
             return
@@ -1166,6 +1422,7 @@ class DashboardApp(ctk.CTk):
             self.detail_vars["Name"].set(d.get("name", "N/A"))
             self.detail_vars["Category"].set(d.get("category", "N/A"))
             self.detail_vars["Type"].set(d.get("type", "N/A"))
+            self.detail_vars["Port Type"].set(d.get("port_type", "N/A"))
             self.detail_vars["Status"].set(d.get("status", "N/A"))
             self.detail_vars["Manufacturer"].set(d.get("manufacturer", "N/A"))
             self.detail_vars["VID"].set(d.get("vid", "N/A"))

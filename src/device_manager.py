@@ -64,6 +64,42 @@ class DeviceManager:
             
         return vid, pid
 
+    def _is_virtual_device(self, name: str, device_id: str, manufacturer: str = "") -> str:
+        """
+        Determine if a device is virtual or physical.
+        
+        Args:
+            name: Device name
+            device_id: Device identifier
+            manufacturer: Device manufacturer
+            
+        Returns:
+            "Virtual" if device is virtual, "Physical" otherwise
+        """
+        if not name:
+            return "Physical"
+        
+        # Virtual device indicators
+        virtual_keywords = [
+            "virtual", "vmware", "virtualbox", "hyper-v", "hyperv",
+            "tap-windows", "loopback", "pseudo", "vethernet",
+            "vbox", "qemu", "kvm", "parallels", "vpn",
+            "tunnel", "bridge", "vnic", "ramdisk", "ram disk"
+        ]
+        
+        # Check name, device ID, and manufacturer
+        search_text = f"{name} {device_id} {manufacturer}".lower()
+        
+        for keyword in virtual_keywords:
+            if keyword in search_text:
+                return "Virtual"
+        
+        # Check for ROOT\ prefix (often indicates virtual/software devices)
+        if device_id and device_id.upper().startswith("ROOT\\"):
+            return "Virtual"
+        
+        return "Physical"
+
     def get_all_devices(self) -> List[Dict[str, str]]:
         """
         Retrieve all connected devices from various categories.
@@ -131,19 +167,24 @@ class DeviceManager:
             # Determine device type
             dev_type = "USB Device"
             name = item.Name or item.Description or "Unknown USB Device"
+            manufacturer = item.Manufacturer or "Unknown"
             
             if "hub" in name.lower():
                 dev_type = "USB Hub"
             elif "composite" in (item.Description or "").lower():
                 dev_type = "USB Composite Device"
+            
+            # Determine if virtual or physical
+            port_type = self._is_virtual_device(name, path, manufacturer)
 
             devices.append({
                 "name": name,
                 "category": "USB",
                 "type": dev_type,
+                "port_type": port_type,
                 "vid": vid,
                 "pid": pid,
-                "manufacturer": item.Manufacturer or "Unknown",
+                "manufacturer": manufacturer,
                 "status": item.Status or "Unknown",
                 "path": path,
                 "driver": item.Service or "Unknown"
@@ -156,6 +197,8 @@ class DeviceManager:
         try:
             vid, pid = self._parse_vid_pid(item.DeviceID)
             name = item.Name or item.Description or "Unknown HID Device"
+            manufacturer = item.Manufacturer or "Unknown"
+            path = item.DeviceID or "Unknown"
             
             # Categorize HID devices
             cat = "HID"
@@ -164,15 +207,19 @@ class DeviceManager:
             elif "mouse" in name.lower():
                 cat = "Mouse"
             
+            # Determine if virtual or physical
+            port_type = self._is_virtual_device(name, path, manufacturer)
+            
             devices.append({
                 "name": name,
                 "category": cat,
                 "type": "Human Interface Device",
+                "port_type": port_type,
                 "vid": vid,
                 "pid": pid,
-                "manufacturer": item.Manufacturer or "Unknown",
+                "manufacturer": manufacturer,
                 "status": item.Status or "Unknown",
-                "path": item.DeviceID or "Unknown",
+                "path": path,
                 "driver": item.Service or "Unknown"
             })
         except Exception as e:
@@ -182,16 +229,23 @@ class DeviceManager:
         """Add network adapter to the devices list."""
         try:
             status = "Connected" if item.NetConnectionStatus == 2 else "Disconnected"
+            name = item.Name
+            manufacturer = item.Manufacturer or "Unknown"
+            path = item.PNPDeviceID or "N/A"
+            
+            # Determine if virtual or physical
+            port_type = self._is_virtual_device(name, path, manufacturer)
             
             devices.append({
-                "name": item.Name,
+                "name": name,
                 "category": "Network",
                 "type": item.AdapterType or "Network Adapter",
+                "port_type": port_type,
                 "vid": "N/A",
                 "pid": "N/A",
-                "manufacturer": item.Manufacturer or "Unknown",
+                "manufacturer": manufacturer,
                 "status": status,
-                "path": item.PNPDeviceID or "N/A",
+                "path": path,
                 "driver": item.ServiceName or "Unknown"
             })
         except Exception as e:
@@ -200,15 +254,23 @@ class DeviceManager:
     def _add_storage_device(self, devices: List[Dict], item) -> None:
         """Add storage device to the devices list."""
         try:
+            name = item.Model or item.Caption or "Unknown Storage"
+            manufacturer = item.Manufacturer or "Generic"
+            path = item.DeviceID or "Unknown"
+            
+            # Determine if virtual or physical (e.g., RAM disks, virtual disks)
+            port_type = self._is_virtual_device(name, path, manufacturer)
+            
             devices.append({
-                "name": item.Model or item.Caption or "Unknown Storage",
+                "name": name,
                 "category": "Storage",
                 "type": item.MediaType or "Disk Drive",
+                "port_type": port_type,
                 "vid": "N/A",
                 "pid": "N/A",
-                "manufacturer": item.Manufacturer or "Generic",
+                "manufacturer": manufacturer,
                 "status": item.Status or "Unknown",
-                "path": item.DeviceID or "Unknown",
+                "path": path,
                 "driver": "disk"
             })
         except Exception as e:
@@ -217,15 +279,23 @@ class DeviceManager:
     def _add_bluetooth_device(self, devices: List[Dict], item) -> None:
         """Add Bluetooth device to the devices list."""
         try:
+            name = item.Name or "Bluetooth Device"
+            manufacturer = item.Manufacturer or "Unknown"
+            path = item.DeviceID or "Unknown"
+            
+            # Determine if virtual or physical
+            port_type = self._is_virtual_device(name, path, manufacturer)
+            
             devices.append({
-                "name": item.Name or "Bluetooth Device",
+                "name": name,
                 "category": "Bluetooth",
                 "type": "Bluetooth",
+                "port_type": port_type,
                 "vid": "N/A",
                 "pid": "N/A",
-                "manufacturer": item.Manufacturer or "Unknown",
+                "manufacturer": manufacturer,
                 "status": item.Status or "Unknown",
-                "path": item.DeviceID or "Unknown",
+                "path": path,
                 "driver": item.Service or "Unknown"
             })
         except Exception as e:
