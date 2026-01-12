@@ -67,7 +67,8 @@ class DashboardApp(ctk.CTk):
             callbacks={
                 "dashboard": self.show_dashboard,
                 "activity": self.show_activity_log,
-                "profile": self.show_profile
+                "profile": self.show_profile,
+                "scan": self.show_custom_scan
             }
         )
 
@@ -1092,9 +1093,15 @@ class DashboardApp(ctk.CTk):
             devices = self.dm.get_all_devices()
             self.last_update_time = datetime.datetime.now()
             
+            # Check for device changes (only newly connected ones)
+            new_devices = self._get_new_devices(devices)
+            
             # Check for device changes and log them
             self.activity_log.check_device_changes(devices)
             
+            # Auto-scan if a new Storage device is connected
+            self._check_and_autoscan(new_devices)
+
             self.after(0, lambda: self._update_tree(devices))
         except Exception as e:
             error_msg = f"Error scanning devices: {e}"
@@ -1103,6 +1110,49 @@ class DashboardApp(ctk.CTk):
         finally:
             self.is_refreshing = False
             self.after(0, self._enable_refresh_button)
+            
+    def _get_new_devices(self, current_devices_list):
+        """Extract only newly connected devices by comparing with previous state."""
+        new_devs = []
+        if not hasattr(self, '_previous_device_paths'):
+            self._previous_device_paths = set()
+            
+        current_paths = {d['path'] for d in current_devices_list}
+        
+        for d in current_devices_list:
+            if d['path'] not in self._previous_device_paths:
+                new_devs.append(d)
+        
+        self._previous_device_paths = current_paths
+        return new_devs
+
+    def _check_and_autoscan(self, new_devices):
+        """Trigger auto-scan if a usable storage device is connected."""
+        if not new_devices:
+            return
+
+        for d in new_devices:
+            # Check if it's a storage device and has a mount point (drive letter)
+            if d.get('category') == 'Storage' and d.get('mount_point') and d['mount_point'] != 'N/A':
+                drive_letter = d['mount_point']
+                # Avoid scanning C: repeatedly if it shows up
+                if drive_letter.upper() == "C:": 
+                    continue
+                    
+                self.activity_log.log_activity(ActivityType.SYSTEM_STARTUP, f"Auto-scanning new drive: {drive_letter}", "System")
+                
+                # We need to switch to scan view on main thread
+                self.after(0, lambda path=drive_letter: self._trigger_autoscan_ui(path))
+                break # Scan only one at a time to avoid chaos
+
+    def _trigger_autoscan_ui(self, path):
+        """Switch to scan view and start scanning."""
+        self.show_custom_scan()
+        if hasattr(self, 'path_entry'):
+            self.path_entry.delete(0, "end")
+            self.path_entry.insert(0, path)
+            self._start_scan()
+
     
     def _enable_refresh_button(self):
         """Enable the refresh button safely."""
@@ -1340,3 +1390,157 @@ class DashboardApp(ctk.CTk):
             for var in self.detail_vars.values():
                 var.set("")
             self.btn_copy.configure(state="disabled")
+
+    def show_custom_scan(self):
+        """Display the custom USB scan view."""
+        if self.current_view == "scan":
+            return
+            
+        self._clear_content()
+        self.current_view = "scan"
+        
+        self.sidebar.update_selection("scan")
+        self.activity_log.log_activity(ActivityType.REFRESH_TRIGGERED, "Accessed Custom Scan", "System")
+        
+        # --- Header ---
+        header_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        
+        ctk.CTkLabel(
+            header_frame, 
+            text="📂 Custom Drive Scan", 
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=24, weight="bold")
+        ).pack(side="left")
+
+        # --- Scan Controls ---
+        controls_frame = ctk.CTkFrame(self.main_container, fg_color=Theme.BG_SIDEBAR, corner_radius=10)
+        controls_frame.pack(fill="x", pady=(0, 20), ipady=10)
+        
+        ctk.CTkLabel(
+            controls_frame, 
+            text="Select Drive or Folder path to analyze:", 
+            font=ctk.CTkFont(size=14)
+        ).pack(side="left", padx=20)
+        
+        self.path_entry = ctk.CTkEntry(
+            controls_frame,
+            width=400,
+            placeholder_text="E.g. E:\\ or D:\\Backups"
+        )
+        self.path_entry.pack(side="left", padx=10)
+        
+        self.btn_browse = ctk.CTkButton(
+            controls_frame,
+            text="Browse",
+            width=80,
+            command=self._browse_folder,
+            fg_color=Theme.SECONDARY
+        )
+        self.btn_browse.pack(side="left", padx=5)
+        
+        self.btn_scan = ctk.CTkButton(
+            controls_frame,
+            text="🚀 Start Scan",
+            width=120,
+            command=self._start_scan,
+            font=ctk.CTkFont(weight="bold")
+        )
+        self.btn_scan.pack(side="left", padx=20)
+
+        # --- Results Area ---
+        self.results_frame = ctk.CTkScrollableFrame(self.main_container, fg_color="transparent")
+        self.results_frame.pack(fill="both", expand=True)
+
+    def _browse_folder(self):
+        folder = filedialog.askdirectory()
+        if folder:
+            self.path_entry.delete(0, "end")
+            self.path_entry.insert(0, folder)
+
+    def _start_scan(self):
+        path = self.path_entry.get()
+        if not path:
+            messagebox.showwarning("Input Required", "Please enter or select a path to scan.")
+            return
+
+        # Clear previous results
+        for widget in self.results_frame.winfo_children():
+            widget.destroy()
+            
+        # Loading indicator
+        loading_lbl = ctk.CTkLabel(self.results_frame, text="⏳ Scanning... Please wait.", font=ctk.CTkFont(size=16))
+        loading_lbl.pack(pady=50)
+        
+        # Run in thread
+        threading.Thread(target=self._run_scan_thread, args=(path,), daemon=True).start()
+
+    def _run_scan_thread(self, path):
+        try:
+            from src.usb_analytics import USBAnalytics
+            analytics = USBAnalytics()
+            results = analytics.analyze_path(path)
+            
+            self.after(0, lambda: self._display_scan_results(results))
+        except Exception as e:
+            self.after(0, lambda: messagebox.showerror("Scan Error", str(e)))
+
+    def _display_scan_results(self, results):
+        """Render the scan results key-value style."""
+        for widget in self.results_frame.winfo_children():
+            widget.destroy()
+
+        if "error" in results:
+            ctk.CTkLabel(self.results_frame, text=f"❌ {results['error']}", text_color=Theme.Error).pack(pady=20)
+            return
+
+        # Summary Section
+        summary_frame = ctk.CTkFrame(self.results_frame, fg_color=Theme.BG_SIDEBAR)
+        summary_frame.pack(fill="x", pady=(0, 20), ipady=10)
+        
+        s = results["summary"]
+        ctk.CTkLabel(summary_frame, text="📊 Scan Summary", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10,5))
+        
+        info_text = f"Total Files: {s['total_files']}  |  Total Size: {s['total_size_gb']} GB"
+        ctk.CTkLabel(summary_frame, text=info_text, font=ctk.CTkFont(size=14)).pack(pady=5)
+
+        # Details Grid
+        details_container = ctk.CTkFrame(self.results_frame, fg_color="transparent")
+        details_container.pack(fill="both", expand=True)
+        details_container.grid_columnconfigure(0, weight=1)
+        details_container.grid_columnconfigure(1, weight=1)
+        
+        row = 0
+        col = 0
+        
+        for cat, data in results["details"].items():
+            if data['total_count'] == 0:
+                continue
+                
+            card = ctk.CTkFrame(details_container, fg_color=Theme.BG_SIDEBAR)
+            card.grid(row=row, column=col, sticky="nsew", padx=10, pady=10)
+            
+            # Category Header
+            header = ctk.CTkFrame(card, fg_color="transparent")
+            header.pack(fill="x", padx=10, pady=5)
+            
+            ctk.CTkLabel(header, text=cat, font=ctk.CTkFont(size=16, weight="bold")).pack(side="left")
+            ctk.CTkLabel(header, text=f"{data['total_count']} files ({data['total_size_mb']} MB)", 
+                         text_color="gray").pack(side="right")
+            
+            # File Types List
+            types_text = ""
+            sorted_types = list(data["file_types"].items())[:8] # Show top 8
+            
+            for ext, count in sorted_types:
+                clean_ext = ext.lstrip('.') if ext else "unknown"
+                types_text += f"{clean_ext}: {count}   "
+            
+            if len(data["file_types"]) > 8:
+                types_text += "..."
+
+            ctk.CTkLabel(card, text=types_text, wraplength=400, justify="left").pack(padx=10, pady=(0, 10), fill="x")
+
+            col += 1
+            if col > 1:
+                col = 0
+                row += 1

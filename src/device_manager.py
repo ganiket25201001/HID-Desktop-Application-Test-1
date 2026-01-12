@@ -284,6 +284,19 @@ class DeviceManager:
             manufacturer = item.Manufacturer or "Generic"
             path = item.DeviceID or "Unknown"
             
+            # Use WMI associations to find the drive letter (e.g., E:)
+            drive_letter = "N/A"
+            try:
+                for partition in item.associators("Win32_DiskDriveToDiskPartition"):
+                    for logical_disk in partition.associators("Win32_LogicalDiskToPartition"):
+                        if logical_disk.DeviceID:
+                            drive_letter = logical_disk.DeviceID
+                            break
+                    if drive_letter != "N/A":
+                        break
+            except:
+                pass
+
             # Determine if virtual or physical (e.g., RAM disks, virtual disks)
             port_type = self._is_virtual_device(name, path, manufacturer)
             
@@ -297,7 +310,8 @@ class DeviceManager:
                 "manufacturer": manufacturer,
                 "status": item.Status or "Unknown",
                 "path": path,
-                "driver": "disk"
+                "driver": "disk",
+                "mount_point": drive_letter # Added for auto-scan
             })
         except Exception as e:
             logger.warning(f"Failed to add storage device: {e}")
