@@ -1133,7 +1133,8 @@ class DashboardApp(ctk.CTk):
         def get_tree_state(tree):
             state = {
                 "selected": None, # dict or string
-                "expanded": set() # set of category names
+                "expanded": set(), # set of category names
+                "scroll_pos": tree.yview() # Capture scroll position (top, bottom)
             }
             
             # Capture Expanded Categories
@@ -1202,9 +1203,19 @@ class DashboardApp(ctk.CTk):
         
         # Update Physical Devices Tab
         self._populate_tree(self.tree_physical, physical_devices, phys_state, search_query)
+        if phys_state["scroll_pos"]:
+            try:
+                self.tree_physical.yview_moveto(phys_state["scroll_pos"][0])
+            except:
+                pass
         
         # Update Virtual Devices Tab
         self._populate_tree(self.tree_virtual, virtual_devices, virt_state, search_query)
+        if virt_state["scroll_pos"]:
+            try:
+                self.tree_virtual.yview_moveto(virt_state["scroll_pos"][0])
+            except:
+                pass
 
         # Update status
         if hasattr(self, 'lbl_status') and self.last_update_time:
@@ -1232,12 +1243,17 @@ class DashboardApp(ctk.CTk):
         # Category icons mapping
         category_icons = {
             "USB": "🔌",
+            "USB Port": "🔌",
             "HID": "⌨️",
             "Keyboard": "⌨️",
             "Mouse": "🖱️",
             "Network": "🌐",
+            "Ethernet": "🔗",
+            "Wi-Fi": "📶",
             "Storage": "💾",
-            "Bluetooth": "📡"
+            "Bluetooth": "📡",
+            "Display": "🖥️",
+            "HDMI": "🖥️"
         }
         
         # Insert by categories

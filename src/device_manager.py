@@ -156,6 +156,14 @@ class DeviceManager:
         except Exception as e:
             logger.error(f"Failed to query Bluetooth devices: {e}")
         
+        # 6. Display Devices (HDMI/Monitor)
+        try:
+            display_entities = c.query("SELECT * FROM Win32_PnPEntity WHERE Service='monitor' OR DeviceID LIKE 'DISPLAY%'")
+            for item in display_entities:
+                self._add_display_device(devices, item)
+        except Exception as e:
+            logger.error(f"Failed to query Display devices: {e}")
+        
         return devices
     
     def _add_usb_device(self, devices: List[Dict], item) -> None:
@@ -166,12 +174,20 @@ class DeviceManager:
             
             # Determine device type
             dev_type = "USB Device"
+            category = "USB"
             name = item.Name or item.Description or "Unknown USB Device"
             manufacturer = item.Manufacturer or "Unknown"
             
-            if "hub" in name.lower():
+            name_lower = name.lower()
+            desc_lower = (item.Description or "").lower()
+            
+            if "hub" in name_lower or "hub" in desc_lower:
                 dev_type = "USB Hub"
-            elif "composite" in (item.Description or "").lower():
+                category = "USB Port"
+            elif "controller" in name_lower or "controller" in desc_lower:
+                dev_type = "USB Controller"
+                category = "USB Port"
+            elif "composite" in desc_lower:
                 dev_type = "USB Composite Device"
             
             # Determine if virtual or physical
@@ -179,7 +195,7 @@ class DeviceManager:
 
             devices.append({
                 "name": name,
-                "category": "USB",
+                "category": category,
                 "type": dev_type,
                 "port_type": port_type,
                 "vid": vid,
@@ -233,13 +249,23 @@ class DeviceManager:
             manufacturer = item.Manufacturer or "Unknown"
             path = item.PNPDeviceID or "N/A"
             
+            # Determine category (Ethernet vs Wi-Fi vs Network)
+            category = "Network"
+            adapter_type = item.AdapterType or "Network Adapter"
+            
+            name_lower = name.lower()
+            if "ethernet" in name_lower or "gbe" in name_lower or "gigabit" in name_lower:
+                category = "Ethernet"
+            elif "wi-fi" in name_lower or "wireless" in name_lower or "802.11" in name_lower:
+                category = "Wi-Fi"
+            
             # Determine if virtual or physical
             port_type = self._is_virtual_device(name, path, manufacturer)
             
             devices.append({
                 "name": name,
-                "category": "Network",
-                "type": item.AdapterType or "Network Adapter",
+                "category": category,
+                "type": adapter_type,
                 "port_type": port_type,
                 "vid": "N/A",
                 "pid": "N/A",
@@ -300,3 +326,33 @@ class DeviceManager:
             })
         except Exception as e:
             logger.warning(f"Failed to add Bluetooth device: {e}")
+
+    def _add_display_device(self, devices: List[Dict], item) -> None:
+        """Add Display/Monitor device to the devices list."""
+        try:
+            name = item.Name or item.Description or "Generic Monitor"
+            manufacturer = item.Manufacturer or "Unknown"
+            path = item.DeviceID or "Unknown"
+            
+            # Check for HDMI in name/description (not always reliable, but helps categorization)
+            category = "Display"
+            if "hdmi" in name.lower() or "hdmi" in (item.Description or "").lower():
+                category = "HDMI"
+            
+            # Determine if virtual or physical
+            port_type = self._is_virtual_device(name, path, manufacturer)
+            
+            devices.append({
+                "name": name,
+                "category": category,
+                "type": "Display Monitor",
+                "port_type": port_type,
+                "vid": "N/A",
+                "pid": "N/A",
+                "manufacturer": manufacturer,
+                "status": item.Status or "Unknown",
+                "path": path,
+                "driver": item.Service or "Unknown"
+            })
+        except Exception as e:
+            logger.warning(f"Failed to add Display device: {e}")
