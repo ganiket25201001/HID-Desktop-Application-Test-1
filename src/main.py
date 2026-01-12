@@ -48,8 +48,8 @@ def main():
         
         # Center window on screen
         app.update_idletasks()
-        window_width = 950
-        window_height = 950
+        window_width = 1050
+        window_height = 700
         screen_width = app.winfo_screenwidth()
         screen_height = app.winfo_screenheight()
         x = (screen_width - window_width) // 2
