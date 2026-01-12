@@ -5,11 +5,13 @@ Provides a sleek dark-themed interface with enhanced visuals.
 import customtkinter as ctk
 from tkinter import ttk, messagebox, filedialog
 import threading
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any, Union
 import datetime
 from src.device_manager import DeviceManager
 from src.user_profile import UserProfile
 from src.system_activity_log import ActivityLog, ActivityType
+from src.theme import Theme
+from src.navigation import NavigationSidebar
 
 # Set CustomTkinter appearance
 ctk.set_appearance_mode("Dark")
@@ -19,7 +21,7 @@ ctk.set_default_color_theme("blue")
 class DashboardApp(ctk.CTk):
     """Main application class for Device Monitor Pro with CustomTkinter."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the modern dashboard application."""
         super().__init__()
         
@@ -50,114 +52,31 @@ class DashboardApp(ctk.CTk):
         # Start background refresh loop
         self._start_refresh_loop()
     
-    def _setup_keyboard_shortcuts(self):
+    def _setup_keyboard_shortcuts(self) -> None:
         """Setup keyboard shortcuts for better UX."""
         self.bind('<F5>', lambda e: self._manual_refresh())
         self.bind('<Control-f>', lambda e: self._focus_search())
         self.bind('<Escape>', lambda e: self.search_entry.delete(0, 'end') if hasattr(self, 'search_entry') else None)
 
-    def _setup_layout(self):
+    def _setup_layout(self) -> None:
         """Setup the main layout with sidebar and content area."""
         # --- Sidebar ---
-        self.sidebar = ctk.CTkFrame(self, width=240, corner_radius=0, fg_color=("#1a1a1a", "#0d0d0d"))
-        self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(10, weight=1)
-        
-        # Logo with gradient-like effect
-        logo_container = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        logo_container.grid(row=0, column=0, padx=20, pady=(30, 40))
-        
-        ctk.CTkLabel(
-            logo_container,
-            text="⚡",
-            font=ctk.CTkFont(size=32)
-        ).pack()
-        
-        self.logo_label = ctk.CTkLabel(
-            logo_container,
-            text="DEVICE MONITOR",
-            font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=("#3B8ED0", "#5CA8E0")
+        self.sidebar = NavigationSidebar(
+            self, 
+            self.user_profile,
+            callbacks={
+                "dashboard": self.show_dashboard,
+                "activity": self.show_activity_log,
+                "profile": self.show_profile
+            }
         )
-        self.logo_label.pack()
-        
-        ctk.CTkLabel(
-            logo_container,
-            text="PRO",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color="gray"
-        ).pack()
-
-        # Navigation Buttons with improved styling
-        self.dash_btn = ctk.CTkButton(
-            self.sidebar,
-            text="📊 Dashboard",
-            command=self.show_dashboard,
-            anchor="w",
-            height=45,
-            font=ctk.CTkFont(size=14, weight="bold"),
-            corner_radius=8,
-            hover_color=("#2E77B5", "#1A5687")
-        )
-        self.dash_btn.grid(row=1, column=0, padx=20, pady=8, sticky="ew")
-        
-        self.activity_btn = ctk.CTkButton(
-            self.sidebar,
-            text="📋 Activity Log",
-            command=self.show_activity_log,
-            fg_color="transparent",
-            anchor="w",
-            height=45,
-            font=ctk.CTkFont(size=14),
-            corner_radius=8,
-            hover_color=("#2B2B2B", "#1F1F1F")
-        )
-        self.activity_btn.grid(row=2, column=0, padx=20, pady=8, sticky="ew")
-        
-        self.profile_btn = ctk.CTkButton(
-            self.sidebar,
-            text="👤 User Profile",
-            command=self.show_profile,
-            fg_color="transparent",
-            anchor="w",
-            height=45,
-            font=ctk.CTkFont(size=14),
-            corner_radius=8,
-            hover_color=("#2B2B2B", "#1F1F1F")
-        )
-        self.profile_btn.grid(row=3, column=0, padx=20, pady=8, sticky="ew")
-        
-        # Divider
-        ctk.CTkFrame(
-            self.sidebar,
-            height=2,
-            fg_color=("#2B2B2B", "#1F1F1F")
-        ).grid(row=9, column=0, padx=30, pady=20, sticky="ew")
-
-        # User Info at Bottom with better styling
-        user_container = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        user_container.grid(row=11, column=0, pady=(0, 20), padx=20)
-        
-        ctk.CTkLabel(
-            user_container,
-            text="👤",
-            font=ctk.CTkFont(size=14)
-        ).pack(side="left", padx=(0, 8))
-        
-        self.user_label = ctk.CTkLabel(
-            user_container,
-            text=self.user_profile.name,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=("#3B8ED0", "#5CA8E0")
-        )
-        self.user_label.pack(side="left")
 
         # --- Main Content Area ---
-        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_container = ctk.CTkFrame(self, fg_color=Theme.BG_MAIN)
         self.main_container.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
         self.main_container.grid_columnconfigure(0, weight=1)
 
-    def _clear_content(self):
+    def _clear_content(self) -> None:
         """Clear the main content area."""
         for widget in self.main_container.winfo_children():
             widget.destroy()
@@ -173,21 +92,8 @@ class DashboardApp(ctk.CTk):
         self.current_view = "dashboard"
         
         # Update button states with enhanced visual feedback
-        self.dash_btn.configure(
-            fg_color=("#3B8ED0", "#1F6AA5"),
-            text="📊 Dashboard",
-            font=ctk.CTkFont(size=14, weight="bold")
-        )
-        self.activity_btn.configure(
-            fg_color="transparent",
-            text="📋 Activity Log",
-            font=ctk.CTkFont(size=14)
-        )
-        self.profile_btn.configure(
-            fg_color="transparent",
-            text="👤 User Profile",
-            font=ctk.CTkFont(size=14)
-        )
+        if hasattr(self, 'sidebar') and isinstance(self.sidebar, NavigationSidebar):
+            self.sidebar.update_selection("dashboard")
         
         # Log activity
         self.activity_log.log_activity(ActivityType.REFRESH_TRIGGERED, "Dashboard refreshed", "System")
@@ -216,7 +122,7 @@ class DashboardApp(ctk.CTk):
             placeholder_text="🔍 Search devices by name, category, or manufacturer...",
             width=450,
             height=40,
-            font=ctk.CTkFont(size=13),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=13),
             corner_radius=10,
             border_width=2
         )
@@ -233,9 +139,9 @@ class DashboardApp(ctk.CTk):
             command=self._manual_refresh,
             width=130,
             height=40,
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=13, weight="bold"),
             corner_radius=10,
-            fg_color=("#27AE60", "#229954"),
+            fg_color=(Theme.SUCCESS, Theme.SUCCESS_Hover),
             hover_color=("#1E8449", "#196F3D")
         )
         self.refresh_btn.pack(side="right", padx=(10, 0))
@@ -243,8 +149,8 @@ class DashboardApp(ctk.CTk):
         self.lbl_status = ctk.CTkLabel(
             status_frame,
             text="⚡ Ready",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=("#3B8ED0", "#5CA8E0")
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=12, weight="bold"),
+            text_color=(Theme.PRIMARY, "#5CA8E0")
         )
         self.lbl_status.pack(side="right", padx=15)
 
@@ -260,7 +166,7 @@ class DashboardApp(ctk.CTk):
             self.body_frame,
             corner_radius=12,
             border_width=2,
-            border_color=("#3B8ED0", "#1F6AA5")
+            border_color=(Theme.BORDER, "#1F6AA5")
         )
         self.tree_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         
@@ -268,9 +174,9 @@ class DashboardApp(ctk.CTk):
         self.device_tabview = ctk.CTkTabview(
             self.tree_frame,
             corner_radius=10,
-            segmented_button_fg_color=("#2B2B2B", "#1A1A1A"),
-            segmented_button_selected_color=("#3B8ED0", "#1F6AA5"),
-            segmented_button_selected_hover_color=("#2E77B5", "#1A5687")
+            segmented_button_fg_color=(Theme.SECONDARY, "#1A1A1A"),
+            segmented_button_selected_color=(Theme.PRIMARY, "#1F6AA5"),
+            segmented_button_selected_hover_color=(Theme.PRIMARY_Hover, "#1A5687")
         )
         self.device_tabview.pack(expand=True, fill="both", padx=8, pady=8)
         
@@ -283,19 +189,19 @@ class DashboardApp(ctk.CTk):
         style.theme_use('clam')
         style.configure("Treeview",
                        background="#2B2B2B",
-                       foreground="white",
+                       foreground=Theme.TEXT_MAIN,
                        fieldbackground="#2B2B2B",
                        borderwidth=0,
                        rowheight=35,
-                       font=('Segoe UI', 11))
+                       font=(Theme.FONT_FAMILY, 11))
         style.map('Treeview', 
-                 background=[('selected', '#3B8ED0')],
+                 background=[('selected', Theme.PRIMARY)],
                  foreground=[('selected', 'white')])
         style.configure("Treeview.Heading",
                        background="#1F1F1F",
-                       foreground="#3B8ED0",
+                       foreground=Theme.PRIMARY,
                        borderwidth=0,
-                       font=('Segoe UI', 11, 'bold'))
+                       font=(Theme.FONT_FAMILY, 11, 'bold'))
         
         # Create Treeview for Physical Devices
         physical_container = ctk.CTkFrame(
@@ -395,7 +301,7 @@ class DashboardApp(ctk.CTk):
         # Initial Load
         self._refresh_data()
 
-    def _create_stat_card(self, parent, title, value, icon, col, accent_color="#3B8ED0"):
+    def _create_stat_card(self, parent, title, value, icon, col, accent_color=Theme.PRIMARY) -> ctk.StringVar:
         """Create a statistics card widget with enhanced styling."""
         card = ctk.CTkFrame(
             parent, 
@@ -429,7 +335,7 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             card,
             textvariable=value_var,
-            font=ctk.CTkFont(size=28, weight="bold"),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=28, weight="bold"),
             text_color=(accent_color, accent_color)
         ).pack(pady=2)
         
@@ -437,13 +343,13 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             card,
             text=title,
-            font=ctk.CTkFont(size=11, weight="bold"),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=11, weight="bold"),
             text_color="gray"
         ).pack(pady=(2, 12))
         
         return value_var
 
-    def _create_detail_field(self, parent, label, variable):
+    def _create_detail_field(self, parent, label, variable) -> None:
         """Create a detail field row with enhanced styling."""
         row = ctk.CTkFrame(parent, fg_color="transparent")
         row.pack(fill="x", padx=15, pady=6)
@@ -469,8 +375,8 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             label_frame,
             text=f"{icon} {label.upper()}",
-            font=ctk.CTkFont(size=10, weight="bold"),
-            text_color=("#3B8ED0", "#5CA8E0"),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=10, weight="bold"),
+            text_color=(Theme.PRIMARY, "#5CA8E0"),
             anchor="w"
         ).pack(side="left")
         
@@ -478,14 +384,14 @@ class DashboardApp(ctk.CTk):
             row,
             textvariable=variable,
             state="readonly",
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=12),
             height=35,
             corner_radius=8,
             border_width=1
         )
         entry.pack(fill="x", pady=(2, 0))
 
-    def show_profile(self):
+    def show_profile(self) -> None:
         """Display the user profile management view with security credentials."""
         if self.current_view == "profile":
             return
@@ -493,29 +399,16 @@ class DashboardApp(ctk.CTk):
         self._clear_content()
         self.current_view = "profile"
         
-        # Update button states with enhanced visual feedback
-        self.dash_btn.configure(
-            fg_color="transparent",
-            text="📊 Dashboard",
-            font=ctk.CTkFont(size=14)
-        )
-        self.activity_btn.configure(
-            fg_color="transparent",
-            text="📋 Activity Log",
-            font=ctk.CTkFont(size=14)
-        )
-        self.profile_btn.configure(
-            fg_color=("#3B8ED0", "#1F6AA5"),
-            text="👤 User Profile",
-            font=ctk.CTkFont(size=14, weight="bold")
-        )
+        # Update button states
+        if hasattr(self, 'sidebar') and isinstance(self.sidebar, NavigationSidebar):
+            self.sidebar.update_selection("profile")
         
         # Main container with padding
         main_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         main_frame.pack(fill="both", expand=True)
         
         # Header Section
-        header_frame = ctk.CTkFrame(main_frame, fg_color=("#2B2B2B", "#1A1A1A"), height=120)
+        header_frame = ctk.CTkFrame(main_frame, fg_color=Theme.SECONDARY, height=120)
         header_frame.pack(fill="x", padx=0, pady=(0, 20))
         header_frame.pack_propagate(False)
         
@@ -530,7 +423,7 @@ class DashboardApp(ctk.CTk):
             font=ctk.CTkFont(size=40),
             width=80,
             height=80,
-            fg_color=["#3B8ED0", "#1F6AA5"],
+            fg_color=[Theme.PRIMARY, "#1F6AA5"],
             corner_radius=40
         )
         avatar.pack(side="left", padx=(0, 20))
@@ -542,15 +435,15 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             name_frame,
             text=self.user_profile.name,
-            font=ctk.CTkFont(size=24, weight="bold"),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=24, weight="bold"),
             text_color="white"
         ).pack(anchor="w")
         
         ctk.CTkLabel(
             name_frame,
             text=self.user_profile.role,
-            font=ctk.CTkFont(size=12),
-            text_color=["#3B8ED0", "#1F6AA5"]
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=12),
+            text_color=[Theme.PRIMARY, "#1F6AA5"]
         ).pack(anchor="w")
         
         # Content Container (Two columns)
@@ -560,7 +453,7 @@ class DashboardApp(ctk.CTk):
         content_frame.grid_columnconfigure(1, weight=1)
         
         # Left Panel - Personal Information
-        left_panel = ctk.CTkFrame(content_frame, fg_color=("#2B2B2B", "#1A1A1A"))
+        left_panel = ctk.CTkFrame(content_frame, fg_color=Theme.SECONDARY)
         left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         
         # Left Panel Header
@@ -576,7 +469,7 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             left_header,
             text="Personal Information",
-            font=ctk.CTkFont(size=14, weight="bold")
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=14, weight="bold")
         ).pack(side="left")
         
         # Personal Info Fields
@@ -589,7 +482,7 @@ class DashboardApp(ctk.CTk):
         self._create_security_field(left_panel, "GMAIL / EMAIL", self.var_email, "📧", readonly=False)
         
         # Right Panel - Security Credentials
-        right_panel = ctk.CTkFrame(content_frame, fg_color=("#2B2B2B", "#1A1A1A"))
+        right_panel = ctk.CTkFrame(content_frame, fg_color=Theme.SECONDARY)
         right_panel.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         
         # Right Panel Header
@@ -770,18 +663,6 @@ class DashboardApp(ctk.CTk):
         else:
             self.password_entry.configure(show="●")
             self.eye_btn.configure(text="👁️")
-        
-        # Save Button
-        save_btn = ctk.CTkButton(
-            card,
-            text="💾 Save Changes",
-            command=self._save_profile,
-            height=45,
-            font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color="#27AE60",
-            hover_color="#229954"
-        )
-        save_btn.pack(pady=(20, 40), padx=80, fill="x")
 
     def _create_profile_entry(self, parent, label, variable):
         """Create a profile entry field."""
@@ -819,12 +700,14 @@ class DashboardApp(ctk.CTk):
             self.activity_log.log_activity(ActivityType.PROFILE_UPDATED, "User profile updated", self.user_profile.name)
             
             # Update Sidebar
-            self.user_label.configure(text=self.user_profile.name)
+            if hasattr(self, 'sidebar') and isinstance(self.sidebar, NavigationSidebar):
+                self.sidebar.update_user_name(self.user_profile.name)
+            
             messagebox.showinfo("Success", "✅ Profile updated successfully!")
         except Exception as e:
             messagebox.showerror("Error", f"❌ Failed to save profile: {e}")
     
-    def show_activity_log(self):
+    def show_activity_log(self) -> None:
         """Display the system activity log view."""
         if self.current_view == "activity_log":
             return
@@ -832,22 +715,9 @@ class DashboardApp(ctk.CTk):
         self._clear_content()
         self.current_view = "activity_log"
         
-        # Update button states with enhanced visual feedback
-        self.dash_btn.configure(
-            fg_color="transparent",
-            text="📊 Dashboard",
-            font=ctk.CTkFont(size=14)
-        )
-        self.activity_btn.configure(
-            fg_color=("#3B8ED0", "#1F6AA5"),
-            text="📋 Activity Log",
-            font=ctk.CTkFont(size=14, weight="bold")
-        )
-        self.profile_btn.configure(
-            fg_color="transparent",
-            text="👤 User Profile",
-            font=ctk.CTkFont(size=14)
-        )
+        # Update button states
+        if hasattr(self, 'sidebar') and isinstance(self.sidebar, NavigationSidebar):
+            self.sidebar.update_selection("activity_log")
         
         # Main container
         main_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
@@ -860,7 +730,7 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             header_frame,
             text="📋 System Activity Log",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=24, weight="bold")
         ).pack(side="left")
         
         # Get statistics
@@ -891,13 +761,13 @@ class DashboardApp(ctk.CTk):
             ctk.CTkLabel(
                 card,
                 text=value,
-                font=ctk.CTkFont(size=18, weight="bold")
+                font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=18, weight="bold")
             ).pack()
             
             ctk.CTkLabel(
                 card,
                 text=label,
-                font=ctk.CTkFont(size=9),
+                font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=9),
                 text_color="gray"
             ).pack(pady=(0, 5))
         
@@ -933,8 +803,8 @@ class DashboardApp(ctk.CTk):
             command=self._export_activity_log,
             width=100,
             height=30,
-            fg_color="#27AE60",
-            hover_color="#229954"
+            fg_color=(Theme.SUCCESS, "#229954"),
+            hover_color=("#229954", "#196F3D")
         )
         export_btn.pack(side="left", padx=(0, 10))
         
@@ -945,13 +815,13 @@ class DashboardApp(ctk.CTk):
             command=self._clear_activity_log,
             width=100,
             height=30,
-            fg_color="#E74C3C",
-            hover_color="#C0392B"
+            fg_color=(Theme.ERROR, "#C0392B"),
+            hover_color=("#C0392B", "#962D22")
         )
         clear_btn.pack(side="left")
         
         # Activity list frame
-        list_frame = ctk.CTkFrame(main_frame, fg_color=("#2B2B2B", "#1A1A1A"))
+        list_frame = ctk.CTkFrame(main_frame, fg_color=Theme.SECONDARY)
         list_frame.pack(fill="both", expand=True)
         
         # Scrollable frame for activities
@@ -961,7 +831,7 @@ class DashboardApp(ctk.CTk):
         # Load and display activities
         self._load_activities()
     
-    def _load_activities(self, activity_filter="All Activities"):
+    def _load_activities(self, activity_filter: str = "All Activities") -> None:
         """Load and display activities in the log."""
         # Clear existing
         for widget in self.activity_scroll.winfo_children():
@@ -986,7 +856,7 @@ class DashboardApp(ctk.CTk):
             ctk.CTkLabel(
                 self.activity_scroll,
                 text="No activities recorded yet",
-                font=ctk.CTkFont(size=14),
+                font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=14),
                 text_color="gray"
             ).pack(pady=50)
             return
@@ -995,14 +865,14 @@ class DashboardApp(ctk.CTk):
         for activity in activities:
             self._create_activity_item(activity)
     
-    def _create_activity_item(self, activity: Dict):
+    def _create_activity_item(self, activity: Dict) -> None:
         """Create a single activity item widget."""
         # Severity colors
         severity_colors = {
-            "error": "#E74C3C",
-            "warning": "#F39C12",
-            "success": "#27AE60",
-            "info": "#3B8ED0"
+            "error": Theme.ERROR,
+            "warning": Theme.WARNING,
+            "success": Theme.SUCCESS,
+            "info": Theme.PRIMARY
         }
         
         # Icons by type
@@ -1020,7 +890,7 @@ class DashboardApp(ctk.CTk):
         # Container for each activity
         item_frame = ctk.CTkFrame(
             self.activity_scroll,
-            fg_color=("#3B3B3B", "#2A2A2A"),
+            fg_color=(Theme.SECONDARY, "#2A2A2A"),
             height=70
         )
         item_frame.pack(fill="x", pady=5, padx=5)
@@ -1032,7 +902,7 @@ class DashboardApp(ctk.CTk):
         left_frame.pack_propagate(False)
         
         # Severity bar
-        severity_color = severity_colors.get(activity['severity'], "#3B8ED0")
+        severity_color = severity_colors.get(activity['severity'], Theme.PRIMARY)
         ctk.CTkFrame(
             left_frame,
             width=4,
@@ -1058,7 +928,7 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             title_row,
             text=activity['device_name'],
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=13, weight="bold"),
             anchor="w"
         ).pack(side="left")
         
@@ -1066,7 +936,7 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             title_row,
             text=activity['type'].replace('_', ' ').title(),
-            font=ctk.CTkFont(size=9),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=9),
             text_color="white",
             fg_color=severity_color,
             corner_radius=3,
@@ -1078,7 +948,7 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             content_frame,
             text=activity['message'],
-            font=ctk.CTkFont(size=11),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=11),
             text_color="gray",
             anchor="w"
         ).pack(fill="x", pady=(0, 2))
@@ -1090,7 +960,7 @@ class DashboardApp(ctk.CTk):
                 ctk.CTkLabel(
                     content_frame,
                     text=details_text,
-                    font=ctk.CTkFont(size=9, family="Consolas"),
+                    font=ctk.CTkFont(family="Consolas", size=9),
                     text_color="#666",
                     anchor="w"
                 ).pack(fill="x")
@@ -1108,14 +978,14 @@ class DashboardApp(ctk.CTk):
         ctk.CTkLabel(
             time_frame,
             text=time_str,
-            font=ctk.CTkFont(size=12, weight="bold"),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=12, weight="bold"),
             anchor="e"
         ).pack(side="top", pady=(10, 0))
         
         ctk.CTkLabel(
             time_frame,
             text=date_str,
-            font=ctk.CTkFont(size=9),
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=9),
             text_color="gray",
             anchor="e"
         ).pack(side="top")
