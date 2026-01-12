@@ -26,7 +26,7 @@ class DashboardApp(ctk.CTk):
         super().__init__()
         
         self.title("Device Monitor Pro")
-        self.geometry("1200x800")
+        self.geometry("950x950")
         
         # Data Managers
         self.dm = DeviceManager()
@@ -73,7 +73,7 @@ class DashboardApp(ctk.CTk):
 
         # --- Main Content Area ---
         self.main_container = ctk.CTkFrame(self, fg_color=Theme.BG_MAIN)
-        self.main_container.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
+        self.main_container.grid(row=0, column=1, sticky="nsew", padx=20, pady=10)
         self.main_container.grid_columnconfigure(0, weight=1)
 
     def _clear_content(self) -> None:
@@ -105,7 +105,7 @@ class DashboardApp(ctk.CTk):
         self.stats_cards = {
             "total": self._create_stat_card(self.stats_frame, "Total Devices", "0", "�", 0, "#3B8ED0"),
             "usb": self._create_stat_card(self.stats_frame, "USB Devices", "0", "🔌", 1, "#27AE60"),
-            "hid": self._create_stat_card(self.stats_frame, "HID Devices", "0", "⌨️", 2, "#F39C12"),
+            "hid": self._create_stat_card(self.stats_frame, "HID Devices", "0", "      ⌨️", 2, "#F39C12"),
             "network": self._create_stat_card(self.stats_frame, "Network", "0", "🌐", 3, "#9B59B6"),
         }
 
@@ -158,7 +158,7 @@ class DashboardApp(ctk.CTk):
         self.body_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.body_frame.grid(row=2, column=0, sticky="nsew")
         self.main_container.grid_rowconfigure(2, weight=1)
-        self.body_frame.grid_columnconfigure(0, weight=2)
+        self.body_frame.grid_columnconfigure(0, weight=3) # Increased weight for tree
         self.body_frame.grid_columnconfigure(1, weight=1)
 
         # Tree View Panel with Tabs
@@ -1270,7 +1270,7 @@ class DashboardApp(ctk.CTk):
             
             # Avoid duplicate insertion if somehow called incorrectly, though we cleared tree
             if not tree.exists(cat_iid):
-                tree.insert("", "end", iid=cat_iid, text=f" {cat_icon} {cat} ({len(dev_list)})", open=is_open)
+                tree.insert("", "end", iid=cat_iid, text=f"{cat_icon} {cat} ({len(dev_list)})", open=is_open)
             
             # Check for category selection restoration
             sel_state = tree_state.get("selected")
@@ -1287,7 +1287,7 @@ class DashboardApp(ctk.CTk):
                 else:
                     status_icon = "⚠️"
                     
-                display_text = f"   {status_icon} {d['name']}"
+                display_text = f"{status_icon} {d['name'].strip()}"
                 child_id = tree.insert(cat_iid, "end", text=display_text)
                 self.current_devices[child_id] = d
                 
