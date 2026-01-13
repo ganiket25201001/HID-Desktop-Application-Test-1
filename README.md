@@ -61,7 +61,15 @@ A modern, professional Python desktop application with a sleek dark-themed UI fo
 - **Persistent Storage** - All data saved to JSON
 - **Activity Logging** - Profile changes tracked in Activity Log
 
-### **🛡️ Technical Excellence**
+### **� USB Drive Scan** (NEW!)
+- **Deep File Analysis** - Scans USB drives or any folder for content breakdown
+- **Visual Analytics** - Categorized summary of files (Images, Documents, Code, etc.)
+- **Space Usage** - Visualize storage distribution by file type
+- **Detailed Reports** - View counts and total size for each category
+- **Custom Scanning** - Browse and scan any specific folder on your system
+- **Threaded Scanning** - Non-blocking background scanning for large drives
+
+### **�🛡️ Technical Excellence**
 - Type hints throughout codebase
 - Comprehensive error handling with logging
 - Background threading for non-blocking UI
@@ -80,6 +88,7 @@ A modern, professional Python desktop application with a sleek dark-themed UI fo
 
 - **Windows 10/11** (WMI dependency)
 - **Python 3.8+**
+- **Dependencies:** `wmi`, `pywin32`, `psutil`, `customtkinter`, `pyinstaller`
 
 ## 🚀 Quick Start
 
@@ -363,6 +372,13 @@ threading          # Background operations
 - Security credentials
 - Password and key management
 - SHA-256 hash display
+
+### 4. USB Drive Scan (💾) - NEW!
+- Dedicated view for storage analysis
+- Drive selection dropdown (auto-detects connected USBs)
+- Browse folder option
+- Summary dashboard with total files and size
+- Detailed category cards
 
 ## 🤝 Contributing
 
