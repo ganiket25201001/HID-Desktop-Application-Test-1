@@ -1137,7 +1137,8 @@ class DashboardApp(ctk.CTk):
 
         for d in new_devices:
             # Check if it's a storage device and has a mount point (drive letter)
-            if d.get('category') == 'Storage' and d.get('mount_point') and d['mount_point'] != 'N/A':
+            cat = d.get('category', '')
+            if cat in ('Storage', 'USB Storage') and d.get('mount_point') and d['mount_point'] != 'N/A':
                 drive_letter = d['mount_point']
                 # Avoid scanning C: repeatedly if it shows up
                 if drive_letter.upper() == "C:": 
@@ -1146,7 +1147,7 @@ class DashboardApp(ctk.CTk):
                 self.activity_log.log_activity(ActivityType.SYSTEM_STARTUP, f"Auto-scanning new drive: {drive_letter}", "System")
                 
                 # We need to switch to scan view on main thread
-                self.after(0, lambda path=drive_letter: self._trigger_autoscan_ui(path))
+                self.after(500, lambda path=drive_letter: self._trigger_autoscan_ui(path))
                 break # Scan only one at a time to avoid chaos
 
     def _trigger_autoscan_ui(self, path):
@@ -1310,6 +1311,7 @@ class DashboardApp(ctk.CTk):
         category_icons = {
             "USB": "🔌",
             "USB Port": "🔌",
+            "USB Storage": "💿",
             "HID": "⌨️",
             "Keyboard": "⌨️",
             "Mouse": "🖱️",
@@ -1493,7 +1495,7 @@ class DashboardApp(ctk.CTk):
             
             for d in devices:
                 # Check for Storage devices that are mounted
-                if d.get('category') == 'Storage' and d.get('mount_point') and d.get('mount_point') != 'N/A':
+                if d.get('category') in ('Storage', 'USB Storage') and d.get('mount_point') and d.get('mount_point') != 'N/A':
                     # Filter for USB if possible, or show all removable
                     is_usb = 'USB' in str(d.get('interface_type', '')).upper()
                     

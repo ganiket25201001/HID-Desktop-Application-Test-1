@@ -283,6 +283,8 @@ class DeviceManager:
             name = item.Model or item.Caption or "Unknown Storage"
             manufacturer = item.Manufacturer or "Generic"
             path = item.DeviceID or "Unknown"
+            media_type = item.MediaType or "Disk Drive"
+            interface_type = item.InterfaceType or "Unknown"
             
             # Use WMI associations to find the drive letter (e.g., E:)
             drive_letter = "N/A"
@@ -294,17 +296,30 @@ class DeviceManager:
                             break
                     if drive_letter != "N/A":
                         break
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to find mount point for {path}: {e}")
+
+            # Fallback: query Win32_LogicalDisk for removable drives if association failed
+            if drive_letter == "N/A" and interface_type.upper() == "USB":
+                drive_letter = self._find_removable_drive_letter(path)
+
+            # Classify USB removable drives as "USB Storage" 
+            category = "Storage"
+            is_removable = "removable" in media_type.lower()
+            is_usb = interface_type.upper() == "USB"
+            if is_usb or is_removable:
+                category = "USB Storage"
+                if not name or name == "Unknown Storage":
+                    name = "USB Drive"
 
             # Determine if virtual or physical (e.g., RAM disks, virtual disks)
             port_type = self._is_virtual_device(name, path, manufacturer)
             
             devices.append({
                 "name": name,
-                "category": "Storage",
-                "type": item.MediaType or "Disk Drive",
-                "interface_type": item.InterfaceType or "Unknown",
+                "category": category,
+                "type": media_type,
+                "interface_type": interface_type,
                 "port_type": port_type,
                 "vid": "N/A",
                 "pid": "N/A",
@@ -312,10 +327,25 @@ class DeviceManager:
                 "status": item.Status or "Unknown",
                 "path": path,
                 "driver": "disk",
-                "mount_point": drive_letter # Added for auto-scan
+                "mount_point": drive_letter
             })
         except Exception as e:
             logger.warning(f"Failed to add storage device: {e}")
+
+    def _find_removable_drive_letter(self, disk_path: str) -> str:
+        """
+        Fallback method to find drive letter for USB removable drives
+        by querying Win32_LogicalDisk directly.
+        """
+        try:
+            c = self._get_wmi()
+            # DriveType 2 = Removable disk (USB pen drives)
+            for disk in c.Win32_LogicalDisk(DriveType=2):
+                if disk.DeviceID:
+                    return disk.DeviceID
+        except Exception as e:
+            logger.warning(f"Fallback mount point lookup failed for {disk_path}: {e}")
+        return "N/A"
     
     def _add_bluetooth_device(self, devices: List[Dict], item) -> None:
         """Add Bluetooth device to the devices list."""
