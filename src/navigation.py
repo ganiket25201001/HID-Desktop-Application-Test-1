@@ -88,6 +88,20 @@ class NavigationSidebar(ctk.CTkFrame):
         )
         self.scan_btn.grid(row=3, column=0, padx=20, pady=8, sticky="ew")
 
+        # Sandbox Button
+        self.sandbox_btn = ctk.CTkButton(
+            self,
+            text="🔒 Sandbox",
+            command=self.callbacks.get("sandbox"),
+            fg_color="transparent",
+            anchor="w",
+            height=45,
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=14),
+            corner_radius=8,
+            hover_color=(Theme.SECONDARY, "#1F1F1F")
+        )
+        self.sandbox_btn.grid(row=4, column=0, padx=20, pady=8, sticky="ew")
+
         # Profile Button
         self.profile_btn = ctk.CTkButton(
             self,
@@ -100,7 +114,7 @@ class NavigationSidebar(ctk.CTkFrame):
             corner_radius=8,
             hover_color=(Theme.SECONDARY, "#1F1F1F")
         )
-        self.profile_btn.grid(row=4, column=0, padx=20, pady=8, sticky="ew")
+        self.profile_btn.grid(row=5, column=0, padx=20, pady=8, sticky="ew")
 
     def _setup_divider(self) -> None:
         """Setup visual divider."""
@@ -142,6 +156,8 @@ class NavigationSidebar(ctk.CTkFrame):
         self.profile_btn.configure(**common_style)
         if hasattr(self, 'scan_btn'):
             self.scan_btn.configure(**common_style)
+        if hasattr(self, 'sandbox_btn'):
+            self.sandbox_btn.configure(**common_style)
         
         # Highlight active
         active_style = {
@@ -161,6 +177,9 @@ class NavigationSidebar(ctk.CTkFrame):
         elif view_name == "scan":
             self.scan_btn.configure(**active_style)
             self.scan_btn.configure(text="📂 Custom Scan")
+        elif view_name == "sandbox":
+            self.sandbox_btn.configure(**active_style)
+            self.sandbox_btn.configure(text="🔒 Sandbox")
 
     def update_user_name(self, name: str) -> None:
         """Update displayed user name."""

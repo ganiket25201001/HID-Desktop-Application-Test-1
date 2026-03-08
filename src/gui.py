@@ -12,6 +12,8 @@ from src.user_profile import UserProfile
 from src.system_activity_log import ActivityLog, ActivityType
 from src.theme import Theme
 from src.navigation import NavigationSidebar
+from src.sandbox import SandboxManager
+from src.usb_interceptor import USBInterceptor
 
 # Set CustomTkinter appearance
 ctk.set_appearance_mode("Dark")
@@ -32,6 +34,8 @@ class DashboardApp(ctk.CTk):
         self.dm = DeviceManager()
         self.user_profile = UserProfile()
         self.activity_log = ActivityLog()
+        self.sandbox_manager = SandboxManager()
+        self.usb_interceptor = None
         
         # State variables
         self.current_devices: Dict = {}
@@ -68,7 +72,8 @@ class DashboardApp(ctk.CTk):
                 "dashboard": self.show_dashboard,
                 "activity": self.show_activity_log,
                 "profile": self.show_profile,
-                "scan": self.show_custom_scan
+                "scan": self.show_custom_scan,
+                "sandbox": self.show_sandbox
             }
         )
 
@@ -1623,3 +1628,269 @@ class DashboardApp(ctk.CTk):
             if col > 1:
                 col = 0
                 row += 1
+
+    def show_sandbox(self):
+        """Display the sandbox security view."""
+        if self.current_view == "sandbox":
+            return
+            
+        self._clear_content()
+        self.current_view = "sandbox"
+        
+        if hasattr(self, 'sidebar') and isinstance(self.sidebar, NavigationSidebar):
+            self.sidebar.update_selection("sandbox")
+        
+        # Header
+        header_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        
+        ctk.CTkLabel(header_frame, text="🔒", font=ctk.CTkFont(size=28)).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(
+            header_frame, 
+            text="Sandbox Security", 
+            font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=24, weight="bold")
+        ).pack(side="left")
+        
+        # Status indicator
+        self.sandbox_status_label = ctk.CTkLabel(
+            header_frame,
+            text="⚫ Inactive",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color="gray"
+        )
+        self.sandbox_status_label.pack(side="right", padx=20)
+        
+        # Control Panel
+        control_frame = ctk.CTkFrame(self.main_container, fg_color=Theme.SECONDARY)
+        control_frame.pack(fill="x", pady=(0, 20), ipady=15)
+        
+        ctk.CTkLabel(
+            control_frame,
+            text="Port Configuration",
+            font=ctk.CTkFont(size=16, weight="bold")
+        ).pack(pady=(10, 15))
+        
+        # Port entry
+        port_container = ctk.CTkFrame(control_frame, fg_color="transparent")
+        port_container.pack(pady=10)
+        
+        ctk.CTkLabel(port_container, text="Port:", font=ctk.CTkFont(size=14)).pack(side="left", padx=10)
+        self.port_entry = ctk.CTkEntry(port_container, width=100, placeholder_text="8080")
+        self.port_entry.pack(side="left", padx=5)
+        
+        # Control buttons
+        btn_container = ctk.CTkFrame(control_frame, fg_color="transparent")
+        btn_container.pack(pady=10)
+        
+        self.btn_start_sandbox = ctk.CTkButton(
+            btn_container,
+            text="🚀 Start Sandbox",
+            command=self._start_sandbox,
+            width=150,
+            fg_color=Theme.SUCCESS,
+            hover_color="#229954"
+        )
+        self.btn_start_sandbox.pack(side="left", padx=5)
+        
+        self.btn_stop_sandbox = ctk.CTkButton(
+            btn_container,
+            text="⏹️ Stop Sandbox",
+            command=self._stop_sandbox,
+            width=150,
+            state="disabled",
+            fg_color=Theme.ERROR,
+            hover_color="#C0392B"
+        )
+        self.btn_stop_sandbox.pack(side="left", padx=5)
+        
+        # Statistics
+        stats_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        stats_frame.pack(fill="x", pady=(0, 20))
+        
+        self.sandbox_stats = {
+            "channels": self._create_stat_card(stats_frame, "Active Channels", "0", "🔌", 0, "#3B8ED0"),
+            "transfers": self._create_stat_card(stats_frame, "Total Transfers", "0", "📊", 1, "#27AE60"),
+            "blocked": self._create_stat_card(stats_frame, "Blocked", "0", "🚫", 2, "#E74C3C"),
+            "allowed": self._create_stat_card(stats_frame, "Allowed", "0", "✅", 3, "#27AE60")
+        }
+        
+        # Transfer Log
+        log_frame = ctk.CTkFrame(self.main_container, fg_color=Theme.SECONDARY)
+        log_frame.pack(fill="both", expand=True)
+        
+        log_header = ctk.CTkFrame(log_frame, fg_color="transparent")
+        log_header.pack(fill="x", padx=15, pady=10)
+        
+        ctk.CTkLabel(
+            log_header,
+            text="📋 Transfer Log",
+            font=ctk.CTkFont(size=16, weight="bold")
+        ).pack(side="left")
+        
+        ctk.CTkButton(
+            log_header,
+            text="🔄 Refresh",
+            command=self._refresh_sandbox_logs,
+            width=100,
+            height=30
+        ).pack(side="right")
+        
+        self.sandbox_log_scroll = ctk.CTkScrollableFrame(log_frame, fg_color="transparent")
+        self.sandbox_log_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        
+        self._refresh_sandbox_logs()
+    
+    def _start_sandbox(self):
+        """Start the sandbox security layer."""
+        try:
+            port_text = self.port_entry.get()
+            if not port_text:
+                messagebox.showwarning("Input Required", "Please enter a port number")
+                return
+            
+            port = int(port_text)
+            if port < 1024 or port > 65535:
+                messagebox.showwarning("Invalid Port", "Port must be between 1024 and 65535")
+                return
+            
+            # Create and start channel
+            channel = self.sandbox_manager.create_channel(port, self._validate_transfer)
+            channel.start()
+            
+            # Start USB interceptor
+            if not self.usb_interceptor:
+                self.usb_interceptor = USBInterceptor(channel)
+                self.usb_interceptor.start_monitoring()
+            
+            self.sandbox_status_label.configure(text="🟢 Active", text_color=Theme.SUCCESS)
+            self.btn_start_sandbox.configure(state="disabled")
+            self.btn_stop_sandbox.configure(state="normal")
+            
+            self._update_sandbox_stats()
+            self.activity_log.log_activity(ActivityType.SYSTEM_STARTUP, f"Sandbox started on port {port}", "System")
+            
+            messagebox.showinfo("Success", f"✅ Sandbox started on port {port}")
+        except ValueError:
+            messagebox.showerror("Error", "Invalid port number")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to start sandbox: {e}")
+    
+    def _stop_sandbox(self):
+        """Stop the sandbox security layer."""
+        try:
+            self.sandbox_manager.stop_all()
+            if self.usb_interceptor:
+                self.usb_interceptor.stop()
+            
+            self.sandbox_status_label.configure(text="⚫ Inactive", text_color="gray")
+            self.btn_start_sandbox.configure(state="normal")
+            self.btn_stop_sandbox.configure(state="disabled")
+            
+            self.activity_log.log_activity(ActivityType.SYSTEM_SHUTDOWN, "Sandbox stopped", "System")
+            messagebox.showinfo("Success", "✅ Sandbox stopped")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to stop sandbox: {e}")
+    
+    def _validate_transfer(self, data: bytes, addr: tuple) -> bool:
+        """Validate if a transfer should be allowed."""
+        # Basic validation - can be extended
+        if len(data) > 10 * 1024 * 1024:  # Block transfers > 10MB
+            return False
+        return True
+    
+    def _update_sandbox_stats(self):
+        """Update sandbox statistics."""
+        if self.current_view != "sandbox":
+            return
+        
+        all_logs = self.sandbox_manager.get_all_logs()
+        total_transfers = sum(len(logs) for logs in all_logs.values())
+        blocked = sum(1 for logs in all_logs.values() for log in logs if not log.allowed)
+        allowed = total_transfers - blocked
+        
+        self.sandbox_stats["channels"].set(str(len(self.sandbox_manager.channels)))
+        self.sandbox_stats["transfers"].set(str(total_transfers))
+        self.sandbox_stats["blocked"].set(str(blocked))
+        self.sandbox_stats["allowed"].set(str(allowed))
+    
+    def _refresh_sandbox_logs(self):
+        """Refresh the sandbox transfer logs."""
+        for widget in self.sandbox_log_scroll.winfo_children():
+            widget.destroy()
+        
+        all_logs = self.sandbox_manager.get_all_logs()
+        
+        if not any(all_logs.values()):
+            ctk.CTkLabel(
+                self.sandbox_log_scroll,
+                text="No transfers logged yet",
+                font=ctk.CTkFont(size=14),
+                text_color="gray"
+            ).pack(pady=50)
+            return
+        
+        for port, logs in all_logs.items():
+            for log in reversed(logs[-50:]):  # Show last 50
+                self._create_transfer_log_item(log, port)
+        
+        self._update_sandbox_stats()
+    
+    def _create_transfer_log_item(self, log, port):
+        """Create a transfer log item widget."""
+        item_frame = ctk.CTkFrame(
+            self.sandbox_log_scroll,
+            fg_color=("#E8E8E8", "#2A2A2A"),
+            height=60
+        )
+        item_frame.pack(fill="x", pady=3, padx=5)
+        item_frame.pack_propagate(False)
+        
+        # Status indicator
+        status_color = Theme.SUCCESS if log.allowed else Theme.ERROR
+        status_icon = "✅" if log.allowed else "🚫"
+        
+        left_frame = ctk.CTkFrame(item_frame, fg_color="transparent", width=60)
+        left_frame.pack(side="left", fill="y", padx=10)
+        left_frame.pack_propagate(False)
+        
+        ctk.CTkLabel(
+            left_frame,
+            text=status_icon,
+            font=ctk.CTkFont(size=20)
+        ).pack(expand=True)
+        
+        # Content
+        content_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
+        content_frame.pack(side="left", fill="both", expand=True, padx=5)
+        
+        # Source -> Destination
+        route_text = f"{log.source} → Port {port}"
+        ctk.CTkLabel(
+            content_frame,
+            text=route_text,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            anchor="w"
+        ).pack(fill="x", pady=(8, 2))
+        
+        # Details
+        details_text = f"Size: {log.size} bytes | Hash: {log.data_hash[:16]}..."
+        ctk.CTkLabel(
+            content_frame,
+            text=details_text,
+            font=ctk.CTkFont(family="Consolas", size=10),
+            text_color="gray",
+            anchor="w"
+        ).pack(fill="x")
+        
+        # Timestamp
+        time_frame = ctk.CTkFrame(item_frame, fg_color="transparent", width=100)
+        time_frame.pack(side="right", fill="y", padx=10)
+        time_frame.pack_propagate(False)
+        
+        time_str = log.timestamp.strftime("%H:%M:%S")
+        ctk.CTkLabel(
+            time_frame,
+            text=time_str,
+            font=ctk.CTkFont(size=11),
+            anchor="e"
+        ).pack(expand=True)
