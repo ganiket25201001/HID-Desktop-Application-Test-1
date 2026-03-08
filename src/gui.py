@@ -12,8 +12,7 @@ from src.user_profile import UserProfile
 from src.system_activity_log import ActivityLog, ActivityType
 from src.theme import Theme
 from src.navigation import NavigationSidebar
-from src.sandbox import SandboxManager
-from src.usb_interceptor import USBInterceptor
+from src.hardware_port_sandbox import HardwarePortSandbox
 
 # Set CustomTkinter appearance
 ctk.set_appearance_mode("Dark")
@@ -34,8 +33,7 @@ class DashboardApp(ctk.CTk):
         self.dm = DeviceManager()
         self.user_profile = UserProfile()
         self.activity_log = ActivityLog()
-        self.sandbox_manager = SandboxManager()
-        self.usb_interceptor = None
+        self.hardware_sandbox = None
         
         # State variables
         self.current_devices: Dict = {}
@@ -73,7 +71,8 @@ class DashboardApp(ctk.CTk):
                 "activity": self.show_activity_log,
                 "profile": self.show_profile,
                 "scan": self.show_custom_scan,
-                "sandbox": self.show_sandbox
+                "sandbox": self.show_sandbox,
+                "hardware_sandbox": self.show_hardware_sandbox
             }
         )
 
@@ -1730,7 +1729,7 @@ class DashboardApp(ctk.CTk):
         ctk.CTkButton(
             log_header,
             text="🔄 Refresh",
-            command=self._refresh_sandbox_logs,
+            command=self._refresh_sandbox_view,
             width=100,
             height=30
         ).pack(side="right")
@@ -1738,116 +1737,76 @@ class DashboardApp(ctk.CTk):
         self.sandbox_log_scroll = ctk.CTkScrollableFrame(log_frame, fg_color="transparent")
         self.sandbox_log_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
-        self._refresh_sandbox_logs()
+        self._refresh_sandbox_view()
     
     def _start_sandbox(self):
-        """Start the sandbox security layer."""
         try:
-            port_text = self.port_entry.get()
-            if not port_text:
-                messagebox.showwarning("Input Required", "Please enter a port number")
-                return
-            
-            port = int(port_text)
-            if port < 1024 or port > 65535:
-                messagebox.showwarning("Invalid Port", "Port must be between 1024 and 65535")
-                return
-            
-            # Create and start channel
-            channel = self.sandbox_manager.create_channel(port, self._validate_transfer)
-            channel.start()
-            
-            # Start USB interceptor
-            if not self.usb_interceptor:
-                self.usb_interceptor = USBInterceptor(channel)
-                self.usb_interceptor.start_monitoring()
-            
+            self.hardware_sandbox = HardwarePortSandbox(self._validate_hardware_transfer)
+            self.hardware_sandbox.start()
             self.sandbox_status_label.configure(text="🟢 Active", text_color=Theme.SUCCESS)
             self.btn_start_sandbox.configure(state="disabled")
             self.btn_stop_sandbox.configure(state="normal")
-            
-            self._update_sandbox_stats()
-            self.activity_log.log_activity(ActivityType.SYSTEM_STARTUP, f"Sandbox started on port {port}", "System")
-            
-            messagebox.showinfo("Success", f"✅ Sandbox started on port {port}")
-        except ValueError:
-            messagebox.showerror("Error", "Invalid port number")
+            self.activity_log.log_activity(ActivityType.SYSTEM_STARTUP, "Hardware monitoring started", "System")
+            messagebox.showinfo("Success", "✅ Monitoring started")
+            self.after(1000, self._refresh_sandbox_view)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to start sandbox: {e}")
+            messagebox.showerror("Error", f"Failed: {e}")
     
     def _stop_sandbox(self):
-        """Stop the sandbox security layer."""
         try:
-            self.sandbox_manager.stop_all()
-            if self.usb_interceptor:
-                self.usb_interceptor.stop()
-            
+            if self.hardware_sandbox:
+                self.hardware_sandbox.stop()
             self.sandbox_status_label.configure(text="⚫ Inactive", text_color="gray")
             self.btn_start_sandbox.configure(state="normal")
             self.btn_stop_sandbox.configure(state="disabled")
-            
-            self.activity_log.log_activity(ActivityType.SYSTEM_SHUTDOWN, "Sandbox stopped", "System")
-            messagebox.showinfo("Success", "✅ Sandbox stopped")
+            self.activity_log.log_activity(ActivityType.SYSTEM_SHUTDOWN, "Monitoring stopped", "System")
+            messagebox.showinfo("Success", "✅ Stopped")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to stop sandbox: {e}")
+            messagebox.showerror("Error", f"Failed: {e}")
     
-    def _validate_transfer(self, data: bytes, addr: tuple) -> bool:
-        """Validate if a transfer should be allowed."""
-        # Basic validation - can be extended
-        if len(data) > 10 * 1024 * 1024:  # Block transfers > 10MB
+    def _validate_hardware_transfer(self, data: bytes, port_id: str) -> bool:
+        if len(data) > 10 * 1024 * 1024:
             return False
         return True
     
-    def _update_sandbox_stats(self):
-        """Update sandbox statistics."""
-        if self.current_view != "sandbox":
-            return
-        
-        all_logs = self.sandbox_manager.get_all_logs()
-        total_transfers = sum(len(logs) for logs in all_logs.values())
-        blocked = sum(1 for logs in all_logs.values() for log in logs if not log.allowed)
-        allowed = total_transfers - blocked
-        
-        self.sandbox_stats["channels"].set(str(len(self.sandbox_manager.channels)))
-        self.sandbox_stats["transfers"].set(str(total_transfers))
-        self.sandbox_stats["blocked"].set(str(blocked))
-        self.sandbox_stats["allowed"].set(str(allowed))
-    
-    def _refresh_sandbox_logs(self):
-        """Refresh the sandbox transfer logs."""
-        for widget in self.sandbox_log_scroll.winfo_children():
+    def _refresh_sandbox_view(self):
+        for widget in self.sandbox_ports_scroll.winfo_children():
             widget.destroy()
-        
-        all_logs = self.sandbox_manager.get_all_logs()
-        
-        if not any(all_logs.values()):
-            ctk.CTkLabel(
-                self.sandbox_log_scroll,
-                text="No transfers logged yet",
-                font=ctk.CTkFont(size=14),
-                text_color="gray"
-            ).pack(pady=50)
+        if not self.hardware_sandbox:
+            ctk.CTkLabel(self.sandbox_ports_scroll, text="Start monitoring to see ports", font=ctk.CTkFont(size=14), text_color="gray").pack(pady=50)
             return
-        
-        for port, logs in all_logs.items():
-            for log in reversed(logs[-50:]):  # Show last 50
-                self._create_transfer_log_item(log, port)
-        
-        self._update_sandbox_stats()
-    
-    def _create_transfer_log_item(self, log, port):
-        """Create a transfer log item widget."""
+        ports = self.hardware_sandbox.get_monitored_ports()
+        if not ports:
+            ctk.CTkLabel(self.sandbox_ports_scroll, text="No ports detected yet", font=ctk.CTkFont(size=14), text_color="gray").pack(pady=50)
+            return
+        usb_count = sum(1 for p in ports.values() if "USB" in p["type"])
+        typec_count = sum(1 for p in ports.values() if "Controller" in p["type"])
+        hdmi_count = sum(1 for p in ports.values() if "Video" in p["type"])
+        self.sandbox_stats["usb"].set(str(usb_count))
+        self.sandbox_stats["typec"].set(str(typec_count))
+        self.sandbox_stats["hdmi"].set(str(hdmi_count))
+        self.sandbox_stats["transfers"].set(str(len(self.hardware_sandbox.get_logs())))
+        for port_id, info in ports.items():
+            self._create_port_item(port_id, info)
+
+
+    def _create_port_item(self, port_id: str, info: Dict):
+        """Create a hardware port item widget."""
         item_frame = ctk.CTkFrame(
-            self.sandbox_log_scroll,
+            self.sandbox_ports_scroll,
             fg_color=("#E8E8E8", "#2A2A2A"),
-            height=60
+            height=70
         )
         item_frame.pack(fill="x", pady=3, padx=5)
         item_frame.pack_propagate(False)
         
-        # Status indicator
-        status_color = Theme.SUCCESS if log.allowed else Theme.ERROR
-        status_icon = "✅" if log.allowed else "🚫"
+        # Port type icon
+        type_icons = {
+            "USB": "🔌",
+            "USB-C/Controller": "⚡",
+            "Video/HDMI": "🖥️"
+        }
+        icon = type_icons.get(info["type"], "📍")
         
         left_frame = ctk.CTkFrame(item_frame, fg_color="transparent", width=60)
         left_frame.pack(side="left", fill="y", padx=10)
@@ -1855,42 +1814,144 @@ class DashboardApp(ctk.CTk):
         
         ctk.CTkLabel(
             left_frame,
-            text=status_icon,
-            font=ctk.CTkFont(size=20)
+            text=icon,
+            font=ctk.CTkFont(size=24)
         ).pack(expand=True)
         
         # Content
         content_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
         content_frame.pack(side="left", fill="both", expand=True, padx=5)
         
-        # Source -> Destination
-        route_text = f"{log.source} → Port {port}"
+        # Port name
         ctk.CTkLabel(
             content_frame,
-            text=route_text,
-            font=ctk.CTkFont(size=12, weight="bold"),
+            text=info["name"],
+            font=ctk.CTkFont(size=13, weight="bold"),
             anchor="w"
-        ).pack(fill="x", pady=(8, 2))
+        ).pack(fill="x", pady=(10, 2))
         
-        # Details
-        details_text = f"Size: {log.size} bytes | Hash: {log.data_hash[:16]}..."
+        # Port type and ID
+        details_text = f"{info['type']} | {port_id[:40]}..."
         ctk.CTkLabel(
             content_frame,
             text=details_text,
-            font=ctk.CTkFont(family="Consolas", size=10),
+            font=ctk.CTkFont(family="Consolas", size=9),
             text_color="gray",
             anchor="w"
         ).pack(fill="x")
         
         # Timestamp
-        time_frame = ctk.CTkFrame(item_frame, fg_color="transparent", width=100)
+        time_frame = ctk.CTkFrame(item_frame, fg_color="transparent", width=120)
         time_frame.pack(side="right", fill="y", padx=10)
         time_frame.pack_propagate(False)
         
-        time_str = log.timestamp.strftime("%H:%M:%S")
+        time_str = info["hooked_at"].strftime("%H:%M:%S")
         ctk.CTkLabel(
             time_frame,
-            text=time_str,
-            font=ctk.CTkFont(size=11),
-            anchor="e"
+            text=f"Hooked at\n{time_str}",
+            font=ctk.CTkFont(size=10),
+            anchor="e",
+            justify="right"
         ).pack(expand=True)
+
+    def show_hardware_sandbox(self):
+        if self.current_view == "hardware_sandbox":
+            return
+        self._clear_content()
+        self.current_view = "hardware_sandbox"
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_selection("hardware_sandbox")
+        header_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        ctk.CTkLabel(header_frame, text="🔌", font=ctk.CTkFont(size=28)).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(header_frame, text="Hardware Port Sandbox", font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=24, weight="bold")).pack(side="left")
+        self.hw_sandbox_status_label = ctk.CTkLabel(header_frame, text="⚫ Inactive", font=ctk.CTkFont(size=14, weight="bold"), text_color="gray")
+        self.hw_sandbox_status_label.pack(side="right", padx=20)
+        control_frame = ctk.CTkFrame(self.main_container, fg_color=Theme.SECONDARY)
+        control_frame.pack(fill="x", pady=(0, 20), ipady=15)
+        ctk.CTkLabel(control_frame, text="Monitor: USB | Type-C | HDMI", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 15))
+        btn_container = ctk.CTkFrame(control_frame, fg_color="transparent")
+        btn_container.pack(pady=10)
+        self.btn_start_hw_sandbox = ctk.CTkButton(btn_container, text="🚀 Start", command=self._start_hw_sandbox, width=150, fg_color=Theme.SUCCESS, hover_color="#229954")
+        self.btn_start_hw_sandbox.pack(side="left", padx=5)
+        self.btn_stop_hw_sandbox = ctk.CTkButton(btn_container, text="⏹️ Stop", command=self._stop_hw_sandbox, width=150, state="disabled", fg_color=Theme.ERROR, hover_color="#C0392B")
+        self.btn_stop_hw_sandbox.pack(side="left", padx=5)
+        stats_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        stats_frame.pack(fill="x", pady=(0, 20))
+        self.hw_sandbox_stats = {"usb": self._create_stat_card(stats_frame, "USB", "0", "🔌", 0, "#3B8ED0"), "typec": self._create_stat_card(stats_frame, "Type-C", "0", "⚡", 1, "#27AE60"), "hdmi": self._create_stat_card(stats_frame, "HDMI", "0", "🖥️", 2, "#9B59B6"), "transfers": self._create_stat_card(stats_frame, "Transfers", "0", "📊", 3, "#F39C12")}
+        ports_frame = ctk.CTkFrame(self.main_container, fg_color=Theme.SECONDARY)
+        ports_frame.pack(fill="both", expand=True)
+        ports_header = ctk.CTkFrame(ports_frame, fg_color="transparent")
+        ports_header.pack(fill="x", padx=15, pady=10)
+        ctk.CTkLabel(ports_header, text="📋 Monitored Ports", font=ctk.CTkFont(size=16, weight="bold")).pack(side="left")
+        ctk.CTkButton(ports_header, text="🔄 Refresh", command=self._refresh_hw_sandbox_view, width=100, height=30).pack(side="right")
+        self.hw_sandbox_ports_scroll = ctk.CTkScrollableFrame(ports_frame, fg_color="transparent")
+        self.hw_sandbox_ports_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self._refresh_hw_sandbox_view()
+    
+    def _start_hw_sandbox(self):
+        try:
+            self.hardware_sandbox = HardwarePortSandbox(self._validate_hardware_transfer)
+            self.hardware_sandbox.start()
+            self.hw_sandbox_status_label.configure(text="🟢 Active", text_color=Theme.SUCCESS)
+            self.btn_start_hw_sandbox.configure(state="disabled")
+            self.btn_stop_hw_sandbox.configure(state="normal")
+            self.activity_log.log_activity(ActivityType.SYSTEM_STARTUP, "Hardware monitoring started", "System")
+            messagebox.showinfo("Success", "✅ Monitoring started")
+            self.after(1000, self._refresh_hw_sandbox_view)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+    
+    def _stop_hw_sandbox(self):
+        try:
+            if self.hardware_sandbox:
+                self.hardware_sandbox.stop()
+            self.hw_sandbox_status_label.configure(text="⚫ Inactive", text_color="gray")
+            self.btn_start_hw_sandbox.configure(state="normal")
+            self.btn_stop_hw_sandbox.configure(state="disabled")
+            self.activity_log.log_activity(ActivityType.SYSTEM_SHUTDOWN, "Monitoring stopped", "System")
+            messagebox.showinfo("Success", "✅ Stopped")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+    
+    def _refresh_hw_sandbox_view(self):
+        for widget in self.hw_sandbox_ports_scroll.winfo_children():
+            widget.destroy()
+        if not self.hardware_sandbox:
+            ctk.CTkLabel(self.hw_sandbox_ports_scroll, text="Start monitoring to see ports", font=ctk.CTkFont(size=14), text_color="gray").pack(pady=50)
+            return
+        ports = self.hardware_sandbox.get_monitored_ports()
+        if not ports:
+            ctk.CTkLabel(self.hw_sandbox_ports_scroll, text="Scanning for ports...", font=ctk.CTkFont(size=14), text_color="gray").pack(pady=50)
+            self.after(2000, self._refresh_hw_sandbox_view)
+            return
+        usb_count = sum(1 for p in ports.values() if "USB" in p["type"])
+        typec_count = sum(1 for p in ports.values() if "Controller" in p["type"])
+        hdmi_count = sum(1 for p in ports.values() if "Video" in p["type"])
+        self.hw_sandbox_stats["usb"].set(str(usb_count))
+        self.hw_sandbox_stats["typec"].set(str(typec_count))
+        self.hw_sandbox_stats["hdmi"].set(str(hdmi_count))
+        self.hw_sandbox_stats["transfers"].set(str(len(self.hardware_sandbox.get_logs())))
+        for port_id, info in ports.items():
+            self._create_hw_port_item(port_id, info)
+    
+    def _create_hw_port_item(self, port_id: str, info: Dict):
+        item_frame = ctk.CTkFrame(self.hw_sandbox_ports_scroll, fg_color=("#E8E8E8", "#2A2A2A"), height=70)
+        item_frame.pack(fill="x", pady=3, padx=5)
+        item_frame.pack_propagate(False)
+        type_icons = {"USB": "🔌", "USB-C/Controller": "⚡", "Video/HDMI": "🖥️"}
+        icon = type_icons.get(info["type"], "📍")
+        left_frame = ctk.CTkFrame(item_frame, fg_color="transparent", width=60)
+        left_frame.pack(side="left", fill="y", padx=10)
+        left_frame.pack_propagate(False)
+        ctk.CTkLabel(left_frame, text=icon, font=ctk.CTkFont(size=24)).pack(expand=True)
+        content_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
+        content_frame.pack(side="left", fill="both", expand=True, padx=5)
+        ctk.CTkLabel(content_frame, text=info["name"], font=ctk.CTkFont(size=13, weight="bold"), anchor="w").pack(fill="x", pady=(10, 2))
+        details_text = f"{info['type']} | {port_id[:40]}..."
+        ctk.CTkLabel(content_frame, text=details_text, font=ctk.CTkFont(family="Consolas", size=9), text_color="gray", anchor="w").pack(fill="x")
+        time_frame = ctk.CTkFrame(item_frame, fg_color="transparent", width=120)
+        time_frame.pack(side="right", fill="y", padx=10)
+        time_frame.pack_propagate(False)
+        time_str = info["hooked_at"].strftime("%H:%M:%S")
+        ctk.CTkLabel(time_frame, text=f"Hooked at\n{time_str}", font=ctk.CTkFont(size=10), anchor="e", justify="right").pack(expand=True)

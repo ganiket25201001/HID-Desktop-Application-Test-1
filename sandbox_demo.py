@@ -1,87 +1,70 @@
 """
-Example: Using Sandbox for Secure File Transfers
-This demonstrates how all file/data transfers are routed through the sandbox.
+Example: Hardware Port Sandbox for USB, Type-C, HDMI
+Monitors physical hardware ports instead of network ports.
 """
-from src.sandbox import SandboxManager, SandboxChannel
-from src.usb_interceptor import USBInterceptor
+from src.hardware_port_sandbox import HardwarePortSandbox
 import time
 
-def custom_validation(data: bytes, addr: tuple) -> bool:
+def custom_validation(data: bytes, port_id: str) -> bool:
     """
-    Custom validation logic for transfers.
+    Custom validation logic for hardware port transfers.
     Return True to allow, False to block.
     """
-    # Example: Block transfers containing specific patterns
-    if b"malware" in data.lower():
-        print(f"⚠️ BLOCKED: Suspicious content from {addr}")
-        return False
-    
-    # Example: Block large transfers
+    # Block large transfers
     if len(data) > 5 * 1024 * 1024:  # 5MB
-        print(f"⚠️ BLOCKED: Transfer too large ({len(data)} bytes) from {addr}")
+        print(f"⚠️ BLOCKED: Transfer too large ({len(data)} bytes) on port {port_id[:30]}...")
         return False
     
-    print(f"✅ ALLOWED: Transfer ({len(data)} bytes) from {addr}")
+    print(f"✅ ALLOWED: Transfer ({len(data)} bytes) on port {port_id[:30]}...")
     return True
 
 def main():
-    print("🔒 Sandbox Security Demo")
+    print("🔒 Hardware Port Sandbox Demo")
     print("=" * 50)
     
-    # Initialize sandbox manager
-    manager = SandboxManager()
-    manager.set_global_validation(custom_validation)
+    # Initialize hardware sandbox
+    sandbox = HardwarePortSandbox(custom_validation)
     
-    # Create secured channels for different ports
-    print("\n📡 Creating secured channels...")
-    channel_8080 = manager.create_channel(8080)
-    channel_8081 = manager.create_channel(8081)
+    print("\n🚀 Starting hardware port monitoring...")
+    sandbox.start()
     
-    # Start all channels
-    print("🚀 Starting sandbox channels...")
-    manager.start_all()
-    
-    # Start USB interceptor
-    print("🔌 Starting USB interceptor...")
-    usb_interceptor = USBInterceptor(channel_8080)
-    usb_interceptor.start_monitoring()
-    
-    print("\n✅ Sandbox is now active!")
-    print("All file transfers will be routed through the sandbox.")
+    print("\n✅ Monitoring active for:")
+    print("   🔌 USB Ports")
+    print("   ⚡ Type-C Ports")
+    print("   🖥️ HDMI/Video Ports")
+    print("\nAll data transfers will be validated.")
     print("\nPress Ctrl+C to stop...\n")
     
     try:
-        # Monitor for 60 seconds
         for i in range(60):
             time.sleep(1)
             
-            # Display statistics every 10 seconds
             if (i + 1) % 10 == 0:
+                ports = sandbox.get_monitored_ports()
+                logs = sandbox.get_logs()
+                
                 print(f"\n📊 Statistics after {i + 1} seconds:")
-                all_logs = manager.get_all_logs()
-                for port, logs in all_logs.items():
-                    total = len(logs)
-                    allowed = sum(1 for log in logs if log.allowed)
-                    blocked = total - allowed
-                    print(f"  Port {port}: {total} transfers ({allowed} allowed, {blocked} blocked)")
+                print(f"   Monitored Ports: {len(ports)}")
+                print(f"   Total Transfers: {len(logs)}")
+                
+                usb_count = sum(1 for p in ports.values() if "USB" in p["type"])
+                typec_count = sum(1 for p in ports.values() if "Controller" in p["type"])
+                hdmi_count = sum(1 for p in ports.values() if "Video" in p["type"])
+                
+                print(f"   🔌 USB: {usb_count} | ⚡ Type-C: {typec_count} | 🖥️ HDMI: {hdmi_count}")
     
     except KeyboardInterrupt:
         print("\n\n⏹️ Stopping sandbox...")
     
     finally:
-        # Cleanup
-        usb_interceptor.stop()
-        manager.stop_all()
+        sandbox.stop()
         print("✅ Sandbox stopped successfully")
         
-        # Final report
-        print("\n📋 Final Transfer Report:")
-        all_logs = manager.get_all_logs()
-        for port, logs in all_logs.items():
-            print(f"\n  Port {port}:")
-            for log in logs[-5:]:  # Show last 5
-                status = "✅ ALLOWED" if log.allowed else "🚫 BLOCKED"
-                print(f"    {status} | {log.source} | {log.size} bytes | {log.timestamp}")
+        print("\n📋 Final Report:")
+        ports = sandbox.get_monitored_ports()
+        print(f"   Total Ports Monitored: {len(ports)}")
+        for port_id, info in list(ports.items())[:5]:
+            print(f"   {info['type']}: {info['name']}")
 
 if __name__ == "__main__":
     main()

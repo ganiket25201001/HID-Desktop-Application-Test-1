@@ -1,0 +1,85 @@
+
+    def show_sandbox(self):
+        if self.current_view == "sandbox":
+            return
+        self._clear_content()
+        self.current_view = "sandbox"
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_selection("sandbox")
+        header_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 20))
+        ctk.CTkLabel(header_frame, text="🔒", font=ctk.CTkFont(size=28)).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(header_frame, text="Hardware Port Sandbox", font=ctk.CTkFont(family=Theme.FONT_FAMILY, size=24, weight="bold")).pack(side="left")
+        self.sandbox_status_label = ctk.CTkLabel(header_frame, text="⚫ Inactive", font=ctk.CTkFont(size=14, weight="bold"), text_color="gray")
+        self.sandbox_status_label.pack(side="right", padx=20)
+        control_frame = ctk.CTkFrame(self.main_container, fg_color=Theme.SECONDARY)
+        control_frame.pack(fill="x", pady=(0, 20), ipady=15)
+        ctk.CTkLabel(control_frame, text="Monitor: USB | Type-C | HDMI", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 15))
+        btn_container = ctk.CTkFrame(control_frame, fg_color="transparent")
+        btn_container.pack(pady=10)
+        self.btn_start_sandbox = ctk.CTkButton(btn_container, text="🚀 Start", command=self._start_sandbox, width=150, fg_color=Theme.SUCCESS, hover_color="#229954")
+        self.btn_start_sandbox.pack(side="left", padx=5)
+        self.btn_stop_sandbox = ctk.CTkButton(btn_container, text="⏹️ Stop", command=self._stop_sandbox, width=150, state="disabled", fg_color=Theme.ERROR, hover_color="#C0392B")
+        self.btn_stop_sandbox.pack(side="left", padx=5)
+        stats_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        stats_frame.pack(fill="x", pady=(0, 20))
+        self.sandbox_stats = {"usb": self._create_stat_card(stats_frame, "USB", "0", "🔌", 0, "#3B8ED0"), "typec": self._create_stat_card(stats_frame, "Type-C", "0", "⚡", 1, "#27AE60"), "hdmi": self._create_stat_card(stats_frame, "HDMI", "0", "🖥️", 2, "#9B59B6"), "transfers": self._create_stat_card(stats_frame, "Transfers", "0", "📊", 3, "#F39C12")}
+        ports_frame = ctk.CTkFrame(self.main_container, fg_color=Theme.SECONDARY)
+        ports_frame.pack(fill="both", expand=True)
+        ports_header = ctk.CTkFrame(ports_frame, fg_color="transparent")
+        ports_header.pack(fill="x", padx=15, pady=10)
+        ctk.CTkLabel(ports_header, text="📋 Monitored Ports", font=ctk.CTkFont(size=16, weight="bold")).pack(side="left")
+        ctk.CTkButton(ports_header, text="🔄 Refresh", command=self._refresh_sandbox_view, width=100, height=30).pack(side="right")
+        self.sandbox_ports_scroll = ctk.CTkScrollableFrame(ports_frame, fg_color="transparent")
+        self.sandbox_ports_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self._refresh_sandbox_view()
+    
+    def _start_sandbox(self):
+        try:
+            self.hardware_sandbox = HardwarePortSandbox(self._validate_hardware_transfer)
+            self.hardware_sandbox.start()
+            self.sandbox_status_label.configure(text="🟢 Active", text_color=Theme.SUCCESS)
+            self.btn_start_sandbox.configure(state="disabled")
+            self.btn_stop_sandbox.configure(state="normal")
+            self.activity_log.log_activity(ActivityType.SYSTEM_STARTUP, "Hardware monitoring started", "System")
+            messagebox.showinfo("Success", "✅ Monitoring started")
+            self.after(1000, self._refresh_sandbox_view)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+    
+    def _stop_sandbox(self):
+        try:
+            if self.hardware_sandbox:
+                self.hardware_sandbox.stop()
+            self.sandbox_status_label.configure(text="⚫ Inactive", text_color="gray")
+            self.btn_start_sandbox.configure(state="normal")
+            self.btn_stop_sandbox.configure(state="disabled")
+            self.activity_log.log_activity(ActivityType.SYSTEM_SHUTDOWN, "Monitoring stopped", "System")
+            messagebox.showinfo("Success", "✅ Stopped")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+    
+    def _validate_hardware_transfer(self, data: bytes, port_id: str) -> bool:
+        if len(data) > 10 * 1024 * 1024:
+            return False
+        return True
+    
+    def _refresh_sandbox_view(self):
+        for widget in self.sandbox_ports_scroll.winfo_children():
+            widget.destroy()
+        if not self.hardware_sandbox:
+            ctk.CTkLabel(self.sandbox_ports_scroll, text="Start monitoring to see ports", font=ctk.CTkFont(size=14), text_color="gray").pack(pady=50)
+            return
+        ports = self.hardware_sandbox.get_monitored_ports()
+        if not ports:
+            ctk.CTkLabel(self.sandbox_ports_scroll, text="No ports detected yet", font=ctk.CTkFont(size=14), text_color="gray").pack(pady=50)
+            return
+        usb_count = sum(1 for p in ports.values() if "USB" in p["type"])
+        typec_count = sum(1 for p in ports.values() if "Controller" in p["type"])
+        hdmi_count = sum(1 for p in ports.values() if "Video" in p["type"])
+        self.sandbox_stats["usb"].set(str(usb_count))
+        self.sandbox_stats["typec"].set(str(typec_count))
+        self.sandbox_stats["hdmi"].set(str(hdmi_count))
+        self.sandbox_stats["transfers"].set(str(len(self.hardware_sandbox.get_logs())))
+        for port_id, info in ports.items():
+            self._create_port_item(port_id, info)
